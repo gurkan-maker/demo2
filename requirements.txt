@@ -5,4 +5,5 @@ matplotlib
 plotly
 fpdf
 Pillow
+kaleido
 requests
