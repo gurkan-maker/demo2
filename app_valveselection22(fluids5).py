@@ -16,7 +16,7 @@ import requests
 from PIL import Image
 import traceback
 import kaleido
-import CoolProp.CoolProp as CP
+from CoolProp.CoolProp import PropsSI 
 
 
 # ========================
