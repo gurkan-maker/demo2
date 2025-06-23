@@ -4,7 +4,7 @@ numpy==1.26.3
 matplotlib==3.8.2
 plotly==5.18.0
 kaleido==0.2.1
-CoolProp==6.4.3
+CoolProp==6.4.3 --only-binary=:all:  # Forces pip to use pre-built binaries
 fpdf2==2.7.7
 Pillow==10.1.0
 requests==2.31.0
