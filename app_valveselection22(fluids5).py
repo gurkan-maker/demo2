@@ -16,8 +16,6 @@ import requests
 from PIL import Image
 import traceback
 import kaleido
-from CoolProp.CoolProp import PropsSI 
-
 
 # ========================
 # CONSTANTS & UNIT CONVERSION
@@ -45,167 +43,184 @@ WATER_DENSITY_4C = 999.97
 AIR_DENSITY_0C = 1.293
 
 # ========================
-# FLUID LIBRARY
+# FLUID PROPERTY FUNCTIONS (REPLACING COOLPROP)
+# ========================
+def calculate_water_vapor_pressure(temp_c):
+    """Calculate water vapor pressure using Antoine equation"""
+    # Antoine constants for water (P in mmHg, T in °C)
+    A = 8.07131
+    B = 1730.63
+    C = 233.426
+    p_mmHg = 10 ** (A - B/(temp_c + C))
+    return p_mmHg * MMHG_TO_BAR
+
+def calculate_propane_vapor_pressure(temp_c):
+    """Calculate propane vapor pressure using Antoine equation"""
+    # Antoine constants for propane (P in mmHg, T in °C)
+    A = 6.82973
+    B = 813.20
+    C = 248.00
+    p_mmHg = 10 ** (A - B/(temp_c + C))
+    return p_mmHg * MMHG_TO_BAR
+
+def calculate_water_density(temp_c, press_bar=None):
+    """Calculate water density using polynomial approximation"""
+    # Polynomial coefficients for density (kg/m³) between 0-100°C
+    T = temp_c
+    density = (999.8396 + 16.945176*T - 7.9870401e-3*T**2 
+               - 46.170461e-6*T**3 + 105.56302e-9*T**4 
+               - 280.54253e-12*T**5) / (1 + 16.879850e-3*T)
+    return density
+
+def calculate_water_viscosity(temp_c, press_bar=None):
+    """Calculate water kinematic viscosity using polynomial approximation"""
+    # Polynomial coefficients for viscosity (cSt) between 0-100°C
+    T = temp_c
+    visc = 1.79 / (1 + 0.0337 * T + 0.00022 * T**2)
+    return visc
+
+def calculate_propane_density(temp_c, press_bar=None):
+    """Calculate propane density using linear approximation"""
+    return 580 - 1.8 * temp_c  # kg/m³
+
+def calculate_propane_viscosity(temp_c, press_bar=None):
+    """Calculate propane kinematic viscosity"""
+    return 0.2 * math.exp(-0.02 * (temp_c - 20))  # cSt
+
+def calculate_gas_density(fluid, temp_c, press_bar):
+    """Calculate gas density using ideal gas law"""
+    # Molecular weights (g/mol)
+    MW = {
+        "Air": 28.97,
+        "Natural Gas": 16.04,  # Methane
+        "Steam": 18.015,
+        "CO2": 44.01,
+        "Ammonia": 17.03
+    }
+    R = 8.314462  # Universal gas constant (J/mol·K)
+    T = temp_c + C_TO_K
+    P = press_bar * 1e5  # Convert bar to Pa
+    
+    if fluid in MW:
+        density = (P * MW[fluid]) / (R * T)  # kg/m³
+    else:
+        density = (P * 28.97) / (R * T)  # Default to air
+    return density
+
+# ========================
+# FLUID LIBRARY (UPDATED WITHOUT COOLPROP)
 # ========================
 FLUID_LIBRARY = {
     "Water": {
         "type": "liquid",
-        "coolprop_name": "Water",
-        "visc_func": lambda t, p: calculate_kinematic_viscosity("Water", t, p),
-        "k_func": None,
-        "pv_func": lambda t, p: calculate_vapor_pressure("Water", t, p),
-        "pc_func": lambda: CP.PropsSI('Pcrit', 'Water') / 1e5,
-        "rho_func": lambda t, p: calculate_density("Water", t, p)
+        "pv_func": calculate_water_vapor_pressure,
+        "pc": 220.55,   # Critical pressure (bar)
+        "rho_func": calculate_water_density,
+        "visc_func": calculate_water_viscosity
     },
     "Light Oil": {
         "type": "liquid",
-        "coolprop_name": None,
         "sg": 0.85,
-        "visc_func": lambda t, p: calculate_kinematic_viscosity("light_oil", t, p),
-        "k_func": None,
+        "visc_func": lambda t, p: 32 * math.exp(-0.03 * (t - 40)),
         "pc": 25.0,
         "pv_func": lambda t, p: 0.0,
         "rho_func": lambda t, p: 0.85 * WATER_DENSITY_4C
     },
     "Heavy Oil": {
         "type": "liquid",
-        "coolprop_name": None,
         "sg": 0.92,
-        "visc_func": lambda t, p: calculate_kinematic_viscosity("heavy_oil", t, p),
-        "k_func": None,
+        "visc_func": lambda t, p: 100 * math.exp(-0.03 * (t - 40)),
         "pc": 15.0,
         "pv_func": lambda t, p: 0.0,
         "rho_func": lambda t, p: 0.92 * WATER_DENSITY_4C
     },
     "Propane": {
         "type": "liquid",
-        "coolprop_name": "Propane",
-        "visc_func": lambda t, p: calculate_kinematic_viscosity("Propane", t, p),
-        "k_func": None,
-        "pv_func": lambda t, p: calculate_vapor_pressure("Propane", t, p),
-        "pc_func": lambda: CP.PropsSI('Pcrit', 'Propane') / 1e5,
-        "rho_func": lambda t, p: calculate_density("Propane", t, p)
+        "pv_func": calculate_propane_vapor_pressure,
+        "pc": 42.48,   # Critical pressure (bar)
+        "rho_func": calculate_propane_density,
+        "visc_func": calculate_propane_viscosity
     },
     "Air": {
         "type": "gas",
-        "coolprop_name": "Air",
         "sg": 1.0,
-        "visc_func": None,
-        "k_func": lambda t, p: calculate_specific_heat_ratio("Air", t, p),
+        "k_func": lambda t, p: 1.4,
         "pv_func": None,
-        "rho_func": lambda t, p: calculate_density("Air", t, p)
+        "rho_func": lambda t, p: calculate_gas_density("Air", t, p)
     },
     "Natural Gas": {
         "type": "gas",
-        "coolprop_name": "Methane",
         "sg": 0.6,
-        "visc_func": None,
-        "k_func": lambda t, p: calculate_specific_heat_ratio("Methane", t, p),
+        "k_func": lambda t, p: 1.31,
         "pv_func": None,
-        "rho_func": lambda t, p: calculate_density("Methane", t, p)
+        "rho_func": lambda t, p: calculate_gas_density("Natural Gas", t, p)
     },
     "Steam": {
         "type": "steam",
-        "coolprop_name": "Water",
         "sg": None,
-        "visc_func": None,
-        "k_func": lambda t, p: calculate_specific_heat_ratio("Water", t, p),
+        "k_func": lambda t, p: 1.33,
         "pv_func": None,
-        "rho_func": lambda t, p: calculate_density("Water", t, p)
+        "rho_func": lambda t, p: calculate_gas_density("Steam", t, p)
     },
     "CO2": {
         "type": "gas",
-        "coolprop_name": "CarbonDioxide",
         "sg": 1.52,
-        "visc_func": None,
-        "k_func": lambda t, p: calculate_specific_heat_ratio("CarbonDioxide", t, p),
+        "k_func": lambda t, p: 1.28,
         "pv_func": None,
-        "rho_func": lambda t, p: calculate_density("CarbonDioxide", t, p)
+        "rho_func": lambda t, p: calculate_gas_density("CO2", t, p)
     },
     "Ammonia": {
         "type": "gas",
-        "coolprop_name": "Ammonia",
         "sg": 0.59,
-        "visc_func": None,
-        "k_func": lambda t, p: calculate_specific_heat_ratio("Ammonia", t, p),
+        "k_func": lambda t, p: 1.32,
         "pv_func": None,
-        "rho_func": lambda t, p: calculate_density("Ammonia", t, p)
+        "rho_func": lambda t, p: calculate_gas_density("Ammonia", t, p)
     }
 }
 
 # ========================
-# FLUID PROPERTY FUNCTIONS
+# FLUID PROPERTY FUNCTIONS (UPDATED)
 # ========================
 def calculate_vapor_pressure(fluid: str, temp_c: float, press_bar: float) -> float:
-    try:
-        if fluid in FLUID_LIBRARY and FLUID_LIBRARY[fluid].get("coolprop_name"):
-            fluid_name = FLUID_LIBRARY[fluid]["coolprop_name"]
-            T = temp_c + C_TO_K
-            pv = CP.PropsSI('P', 'T', T, 'Q', 0, fluid_name) / 1e5
-            return pv
-    except:
-        pass
+    if fluid in FLUID_LIBRARY and FLUID_LIBRARY[fluid].get("pv_func"):
+        return FLUID_LIBRARY[fluid]["pv_func"](temp_c, press_bar)
     return 0.0
 
 def calculate_density(fluid: str, temp_c: float, press_bar: float) -> float:
-    try:
-        if fluid in FLUID_LIBRARY and FLUID_LIBRARY[fluid].get("coolprop_name"):
-            fluid_name = FLUID_LIBRARY[fluid]["coolprop_name"]
-            T = temp_c + C_TO_K
-            P = press_bar * 1e5
-            rho = CP.PropsSI('D', 'T', T, 'P', P, fluid_name)
-            return rho
-    except:
-        pass
+    if fluid in FLUID_LIBRARY and FLUID_LIBRARY[fluid].get("rho_func"):
+        return FLUID_LIBRARY[fluid]["rho_func"](temp_c, press_bar)
     if fluid == "water":
-        return WATER_DENSITY_4C
+        return calculate_water_density(temp_c)
     elif fluid == "air":
-        return (press_bar * 1e5) * 28.97 / (8.314462 * (temp_c + C_TO_K))
+        return calculate_gas_density("Air", temp_c, press_bar)
     return 1000
 
 def calculate_kinematic_viscosity(fluid: str, temp_c: float, press_bar: float) -> float:
-    try:
-        if fluid in FLUID_LIBRARY and FLUID_LIBRARY[fluid].get("coolprop_name"):
-            fluid_name = FLUID_LIBRARY[fluid]["coolprop_name"]
-            T = temp_c + C_TO_K
-            P = press_bar * 1e5
-            mu = CP.PropsSI('V', 'T', T, 'P', P, fluid_name)
-            rho = CP.PropsSI('D', 'T', T, 'P', P, fluid_name)
-            nu = mu / rho * 1e6
-            return nu
-    except:
-        pass
+    if fluid in FLUID_LIBRARY and FLUID_LIBRARY[fluid].get("visc_func"):
+        return FLUID_LIBRARY[fluid]["visc_func"](temp_c, press_bar)
     if fluid == "water":
-        return 1.79 / (1 + 0.0337 * temp_c + 0.00022 * temp_c**2)
+        return calculate_water_viscosity(temp_c)
     elif fluid == "light_oil":
         return 32 * math.exp(-0.03 * (temp_c - 40))
     elif fluid == "heavy_oil":
         return 100 * math.exp(-0.03 * (temp_c - 40))
     elif fluid == "propane":
-        return 0.2 * math.exp(-0.02 * (temp_c - 20))
+        return calculate_propane_viscosity(temp_c)
     return 1.0
 
 def calculate_specific_heat_ratio(fluid: str, temp_c: float, press_bar: float) -> float:
-    try:
-        if fluid in FLUID_LIBRARY and FLUID_LIBRARY[fluid].get("coolprop_name"):
-            fluid_name = FLUID_LIBRARY[fluid]["coolprop_name"]
-            T = temp_c + C_TO_K
-            P = press_bar * 1e5
-            Cp = CP.PropsSI('C', 'T', T, 'P', P, fluid_name)
-            Cv = CP.PropsSI('O', 'T', T, 'P', P, fluid_name)
-            return Cp / Cv
-    except:
-        pass
+    if fluid in FLUID_LIBRARY and FLUID_LIBRARY[fluid].get("k_func"):
+        return FLUID_LIBRARY[fluid]["k_func"](temp_c, press_bar)
     if fluid == "air":
-        return 1.4 - 0.0001 * temp_c
+        return 1.4
     elif fluid == "natural_gas":
-        return 1.31 - 0.00008 * temp_c
+        return 1.31
     elif fluid == "steam":
-        return 1.33 - 0.0001 * temp_c
+        return 1.33
     elif fluid == "co2":
-        return 1.28 - 0.00005 * temp_c
+        return 1.28
     elif fluid == "ammonia":
-        return 1.32 - 0.00007 * temp_c
+        return 1.32
     return 1.4
 
 def calculate_ff(pv: float, pc: float) -> float:
@@ -214,7 +229,7 @@ def calculate_ff(pv: float, pc: float) -> float:
     return 0.96 - 0.28 * math.sqrt(pv / pc)
 
 # ========================
-# VALVE DATABASE
+# VALVE DATABASE (UNCHANGED)
 # ========================
 class Valve:
     def __init__(self, size_inch: int, rating_class: int, cv_table: dict, 
@@ -309,7 +324,7 @@ VALVE_MODELS = {
 }
 
 # ========================
-# CV CALCULATION MODULE
+# CV CALCULATION MODULE (UNCHANGED)
 # ========================
 def reynolds_number(flow_m3h: float, d_m: float, visc_cst: float) -> float:
     if visc_cst < 0.1:
@@ -355,8 +370,8 @@ def calculate_x_tp(valve, valve_d_inch: float, pipe_d_inch: float, Fp: float) ->
     KB1 = 1 - d_ratio**4
     Ki = K1 + KB1
     cv_100 = valve.get_cv_at_opening(100)
-    term = 1 + (xT * Ki / CONSTANTS["N5"]["inch"]) * (cv_100 / valve_d_inch**2)**2
-    xTP = xT / Fp**2 * (1 / term)
+    term = 1 + (xT * Ki / CONSTANTS["N5"]["inch"]) * (cv_100 / valve_d_inch^2)**2
+    xTP = xT / Fp^2 * (1 / term)
     return xTP
 
 def cv_liquid(flow: float, p1: float, p2: float, sg: float, fl: float, 
@@ -502,7 +517,7 @@ def check_cavitation(p1: float, p2: float, pv: float, fl: float, pc: float) -> t
     return False, sigma, km, "Minimal cavitation risk"
 
 # ========================
-# PDF REPORT GENERATION
+# PDF REPORT GENERATION (UNCHANGED)
 # ========================
 class PDFReport(FPDF):
     def __init__(self, logo_bytes=None, logo_type=None):
@@ -660,7 +675,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
     return pdf_bytes
 
 # ========================
-# SIMULATION RESULTS
+# SIMULATION RESULTS (UNCHANGED)
 # ========================
 def get_simulation_image(valve_name):
     simulation_images = {
@@ -676,7 +691,7 @@ def get_simulation_image(valve_name):
     return simulation_images.get(valve_name, "https://via.placeholder.com/1200x900.png?text=Simulation+Not+Available")
 
 # ========================
-# FLOW RATE VS PRESSURE DROP GRAPH
+# FLOW RATE VS PRESSURE DROP GRAPH (UNCHANGED)
 # ========================
 def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
     # Get actual Cv at operating point
@@ -782,7 +797,7 @@ def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
     return fig
 
 # ========================
-# RECOMMENDED VALVE LOGIC
+# RECOMMENDED VALVE LOGIC (UNCHANGED)
 # ========================
 def evaluate_valve_for_scenario(valve, scenario):
     pipe_d = scenario["pipe_d"]
@@ -824,8 +839,8 @@ def evaluate_valve_for_scenario(valve, scenario):
             fluid_data = FLUID_LIBRARY[scenario['fluid_library']]
             scenario["visc"] = fluid_data["visc_func"](scenario["temp"], scenario["p1"])
             scenario["pv"] = fluid_data["pv_func"](scenario["temp"], scenario["p1"])
-            if "pc_func" in fluid_data:
-                scenario["pc"] = fluid_data["pc_func"]()
+            if "pc" in fluid_data:
+                scenario["pc"] = fluid_data["pc"]
         
         cv_req, details = cv_liquid(
             flow=scenario["flow"],
@@ -982,7 +997,7 @@ def find_recommended_valve(scenarios):
     return best_valve, all_valve_results
 
 # ========================
-# STREAMLIT APPLICATION
+# STREAMLIT APPLICATION (UNCHANGED)
 # ========================
 def get_valve_display_name(valve):
     rating_code_map = {
@@ -1107,8 +1122,8 @@ def scenario_input_form(scenario_num, scenario_data=None):
                 scenario_data["k"] = fluid_data["k_func"](temp, p1)
             if fluid_data.get("pv_func") and fluid_data["type"] == "liquid":
                 scenario_data["pv"] = fluid_data["pv_func"](temp, p1)
-            if fluid_data.get("pc_func") and fluid_data["type"] == "liquid":
-                scenario_data["pc"] = fluid_data["pc_func"]()
+            if fluid_data.get("pc") and fluid_data["type"] == "liquid":
+                scenario_data["pc"] = fluid_data["pc"]
             if fluid_data.get("rho_func") and fluid_data["type"] == "steam":
                 scenario_data["rho"] = fluid_data["rho_func"](temp, p1)
             if fluid_data.get("sg") is not None:
