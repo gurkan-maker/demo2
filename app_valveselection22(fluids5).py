@@ -16,8 +16,8 @@ import requests
 from PIL import Image
 import traceback
 import kaleido
-#import CoolProp.CoolProp as CP
-import pycoolprop as CP  # Replace "import CoolProp.CoolProp as CP"
+import CoolProp.CoolProp as CP
+
 
 # ========================
 # CONSTANTS & UNIT CONVERSION
