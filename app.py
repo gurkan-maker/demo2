@@ -657,10 +657,11 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
         except Exception as e:
             pdf.cell(0, 10, f"Failed to insert plot: {str(e)}", 0, 1)
     
-    pdf_string = pdf.output(dest='S').encode('latin1')
-    pdf_bytes = BytesIO(pdf_string)
-    pdf_bytes.seek(0)
-    return pdf_bytes
+    # FIX: Use BytesIO buffer instead of string encoding
+    pdf_bytes_io = BytesIO()
+    pdf.output(pdf_bytes_io)
+    pdf_bytes_io.seek(0)
+    return pdf_bytes_io
 
 # ========================
 # SIMULATION RESULTS
