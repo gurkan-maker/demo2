@@ -537,519 +537,533 @@ def check_cavitation(p1: float, p2: float, pv: float, fl: float, pc: float) -> t
 # ========================
 # ENHANCED PDF REPORT GENERATION
 # ========================
-class EnhancedPDFReport(FPDF):
-    THEME = {
-        'primary': (31, 73, 125),      # Dark blue
-        'secondary': (79, 129, 189),   # Medium blue
-        'accent': (192, 80, 77),       # Red
-        'light': (240, 240, 240),      # Light gray
-        'dark': (50, 50, 50),          # Dark gray
-        'success': (67, 160, 71),      # Green
-        'warning': (255, 152, 0),      # Orange
-        'danger': (211, 47, 47)        # Red
-    }
-    
+from fpdf import FPDF, HTMLMixin
+from io import BytesIO
+import base64
+import tempfile
+import os
+from datetime import datetime
+import re
+import zlib
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.units import inch
+import matplotlib.pyplot as plt
+import numpy as np
+
+class EnhancedPDFReport:
     def __init__(self, logo_bytes=None, logo_type=None, config=None):
-        super().__init__()
         self.logo_bytes = logo_bytes
         self.logo_type = logo_type
-        self.config = config or {}
-        self.set_auto_page_break(auto=True, margin=15)
-        self.alias_nb_pages()
-        self.set_doc_metadata()
-        self.add_custom_fonts()
-        self.current_chapter = None
+        self.config = config or {
+            'page_size': 'A4',
+            'margin_top': 15,
+            'margin_bottom': 15,
+            'margin_left': 10,
+            'margin_right': 10,
+            'font_family': 'Helvetica',
+            'font_size': 10,
+            'title_font_size': 16,
+            'heading_font_size': 12,
+            'primary_color': (0, 0.2, 0.4),
+            'secondary_color': (0.4, 0.4, 0.4),
+            'watermark': None,
+            'encryption': None,
+            'metadata': {
+                'title': 'Control Valve Sizing Report',
+                'author': 'VASTAŞ Valve Sizing Software',
+                'subject': 'Technical Report',
+                'keywords': 'valve, sizing, engineering'
+            }
+        }
+        self.elements = []
+        self.styles = self._create_styles()
+        self.current_section = None
         self.toc = []
         
-    def set_doc_metadata(self):
-        self.set_title(self.config.get('title', 'Control Valve Sizing Report'))
-        self.set_author(self.config.get('author', 'Valve Sizing Software'))
-        self.set_subject(self.config.get('subject', 'Valve Sizing Analysis'))
-        self.set_keywords(self.config.get('keywords', 'valve, sizing, engineering'))
-        self.set_creator(self.config.get('creator', 'VASTAŞ Valve Sizing System'))
-        
-    def add_custom_fonts(self):
-        # Add custom fonts if available in config
-        font_dir = self.config.get('font_dir', '')
-        if font_dir and os.path.exists(font_dir):
-            for style in ['', 'B', 'I', 'BI']:
-                self.add_font('DejaVu', style, os.path.join(font_dir, f'DejaVuSans{style}.ttf'))
-            self.set_font('DejaVu', '', 10)
-        else:
-            # Fallback to Arial
-            self.add_font('Arial', '', 'arial.ttf')
-            self.add_font('Arial', 'B', 'arialbd.ttf')
-            self.add_font('Arial', 'I', 'ariali.ttf')
-            self.add_font('Arial', 'BI', 'arialbi.ttf')
-            self.set_font('Arial', '', 10)
-    
-    def header(self):
-        # Draw header background
-        self.set_fill_color(*self.THEME['primary'])
-        self.rect(0, 0, self.w, 20, 'F')
-        
-        # Add logo
-        if self.logo_bytes and self.logo_type:
-            try:
-                logo_size = self.config.get('logo_size', (30, 15))
-                self.image(BytesIO(self.logo_bytes), x=10, y=2.5, w=logo_size[0], h=logo_size[1])
-            except Exception as e:
-                self.cell(0, 10, f"Logo error: {str(e)}", 0, 1)
-        
-        # Add title and date
-        self.set_y(8)
-        self.set_font('Arial', 'B', 16)
-        self.set_text_color(255, 255, 255)
-        self.cell(0, 10, self.config.get('title', 'Control Valve Sizing Report'), 0, 1, 'C')
-        self.set_font('Arial', 'I', 10)
-        self.cell(0, 5, f'Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 1, 'C')
-        self.ln(10)
-        
-        # Add chapter title if exists
-        if self.current_chapter:
-            self.set_fill_color(*self.THEME['secondary'])
-            self.set_text_color(255, 255, 255)
-            self.set_font('Arial', 'B', 12)
-            self.cell(0, 6, self.current_chapter, 0, 1, 'L', 1)
-            self.ln(4)
-        
-    def footer(self):
-        self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
-        self.set_text_color(*self.THEME['dark'])
-        self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', 0, 0, 'C')
-        
-    def chapter_title(self, title, level=1):
-        self.current_chapter = title
-        self.toc.append((title, level, self.page_no()))
-        self.add_page()
-        
-    def add_section(self, title, level=2):
-        self.ln(5)
-        self.set_font('Arial', 'B', 10 + (3 - level))
-        self.set_text_color(*self.THEME['primary'])
-        self.cell(0, 8, title, 0, 1, 'L')
-        self.ln(2)
-        
-    def add_paragraph(self, text):
-        self.set_font('Arial', '', 10)
-        self.set_text_color(*self.THEME['dark'])
-        self.multi_cell(0, 5, text)
-        self.ln()
-        
-    def add_table(self, headers, data, col_widths=None, align='L', header_align='C', 
-                 header_fill=True, fill=False, fill_color=(240, 240, 240)):
-        if col_widths is None:
-            col_widths = [self.epw / len(headers)] * len(headers)
-        
-        # Header
-        self.set_font('Arial', 'B', 10)
-        self.set_text_color(255, 255, 255)
-        self.set_fill_color(*self.THEME['primary'])
-        for i, header in enumerate(headers):
-            self.cell(col_widths[i], 7, header, 1, 0, header_align, 1)
-        self.ln()
-        
-        # Data rows
-        self.set_font('Arial', '', 10)
-        self.set_text_color(*self.THEME['dark'])
-        fill_state = fill
-        for row in data:
-            for i, item in enumerate(row):
-                if fill_state:
-                    self.set_fill_color(*fill_color)
-                else:
-                    self.set_fill_color(255, 255, 255)
-                self.cell(col_widths[i], 6, str(item), 1, 0, align, fill_state)
-            self.ln()
-            fill_state = not fill_state if fill else False
-    
-    def add_plot(self, plot_bytes, caption=None, width=180):
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_plot:
-                tmp_plot.write(plot_bytes)
-                tmp_plot_path = tmp_plot.name
-            self.image(tmp_plot_path, x=(self.w - width) / 2, w=width)
-            if caption:
-                self.set_font('Arial', 'I', 8)
-                self.cell(0, 5, caption, 0, 1, 'C')
-            self.ln(5)
-            os.unlink(tmp_plot_path)
-        except Exception as e:
-            self.cell(0, 5, f"Failed to insert plot: {str(e)}", 0, 1)
-    
-    def add_simulation_chart(self, data, chart_type='line', title="", x_label="", y_label="", width=180):
-        try:
-            fig = self._create_chart(data, chart_type, title, x_label, y_label)
-            
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-                fig.savefig(tmpfile.name, dpi=150, bbox_inches='tight')
-                self.image(tmpfile.name, x=(self.w - width) / 2, w=width)
-                os.unlink(tmpfile.name)
-            
-            self.ln(5)
-        except Exception as e:
-            self.cell(0, 5, f"Chart error: {str(e)}", 0, 1)
-    
-    def _create_chart(self, data, chart_type, title, x_label, y_label):
-        plt.figure(figsize=(10, 6))
-        
-        if chart_type == 'line':
-            for series in data['series']:
-                plt.plot(series['x'], series['y'], label=series['name'], 
-                         color=series.get('color'), marker=series.get('marker', 'o'))
-        elif chart_type == 'bar':
-            bar_width = 0.35
-            indices = np.arange(len(data['categories']))
-            for i, series in enumerate(data['series']):
-                plt.bar(indices + i*bar_width, series['values'], bar_width, 
-                        label=series['name'], color=series.get('color'))
-            plt.xticks(indices + bar_width/2, data['categories'])
-        elif chart_type == 'scatter':
-            for series in data['series']:
-                plt.scatter(series['x'], series['y'], label=series['name'], 
-                            color=series.get('color'), s=series.get('size', 50))
-        
-        plt.title(title)
-        plt.xlabel(x_label)
-        plt.ylabel(y_label)
-        plt.grid(True, linestyle='--', alpha=0.7)
-        if data.get('legend', True):
-            plt.legend()
-        
-        return plt
-    
-    def add_table_of_contents(self):
-        self.add_page()
-        self.chapter_title("Table of Contents")
-        self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, "Table of Contents", 0, 1, 'C')
-        self.ln(10)
-        
-        self.set_font('Arial', '', 10)
-        for title, level, page in self.toc:
-            indent = (level - 1) * 10
-            self.cell(indent)
-            self.cell(0, 6, f"{title} ...... {page}", 0, 1)
-            self.ln(2)
-    
-    def add_math_equation(self, equation):
-        try:
-            # Requires latex and dvipng installed in the environment
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-                plt.rc('text', usetex=True)
-                plt.rc('font', family='serif')
-                plt.figure(figsize=(6, 1))
-                plt.text(0.5, 0.5, f"${equation}$", fontsize=12, ha='center', va='center')
-                plt.axis('off')
-                plt.savefig(tmpfile.name, dpi=300, bbox_inches='tight')
-                plt.close()
-                
-                self.image(tmpfile.name, w=min(self.epw, 150))
-                os.unlink(tmpfile.name)
-        except Exception as e:
-            self.cell(0, 5, f"Equation error: {str(e)}", 0, 1)
-    
-    def add_simulation_metadata(self, metadata):
-        self.add_section("Simulation Metadata")
-        
-        rows = []
-        for key, value in metadata.items():
-            rows.append([key, str(value)])
-        
-        self.add_table(["Parameter", "Value"], rows, col_widths=[60, 120])
-    
-    def add_statistical_summary(self, data):
-        self.add_section("Statistical Summary")
-        
-        stats = []
-        stats.append(["Mean", np.mean(data)])
-        stats.append(["Median", np.median(data)])
-        stats.append(["Std Dev", np.std(data)])
-        stats.append(["Min", np.min(data)])
-        stats.append(["Max", np.max(data)])
-        stats.append(["Range", np.ptp(data)])
-        
-        self.add_table(["Statistic", "Value"], stats, col_widths=[60, 60])
-        
-        # Add histogram
-        self.add_section("Distribution", level=3)
-        hist_data = {
-            'series': [{'values': data, 'name': 'Frequency'}],
-            'categories': np.histogram(data)[1][:-1].tolist()
-        }
-        self.add_simulation_chart(hist_data, 'bar', "Data Distribution", "Value", "Frequency")
-    
-    def add_sensitivity_analysis(self, data):
-        self.add_section("Parameter Sensitivity Analysis")
-        
-        # Add table
-        headers = ["Parameter"] + [f"Run {i+1}" for i in range(len(data['runs']))] + ["Sensitivity"]
-        rows = []
-        for param, values in data['parameters'].items():
-            row = [param] + [str(v) for v in values] + [f"{data['sensitivity'][param]:.2f}%"]
-            rows.append(row)
-        
-        self.add_table(headers, rows)
-        
-        # Add tornado chart
-        self.add_section("Tornado Chart", level=3)
-        tornado_data = {
-            'series': [
-                {'name': 'Sensitivity', 'values': list(data['sensitivity'].values())}
-            ],
-            'categories': list(data['sensitivity'].keys())
-        }
-        self.add_simulation_chart(tornado_data, 'bar', "Parameter Sensitivity", "Parameter", "Sensitivity Index")
-    
-    def add_error_bars(self, x, y, yerr, title="", x_label="", y_label=""):
-        self.add_section(title)
-        
-        plt.figure(figsize=(10, 6))
-        plt.errorbar(x, y, yerr=yerr, fmt='o', capsize=5)
-        plt.title(title)
-        plt.xlabel(x_label)
-        plt.ylabel(y_label)
-        plt.grid(True)
-        
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-            plt.savefig(tmpfile.name, dpi=150, bbox_inches='tight')
-            self.image(tmpfile.name, w=min(self.epw, 180))
-            os.unlink(tmpfile.name)
-        
-        plt.close()
-    
-    def add_watermark(self, text="VASTAŞ CONFIDENTIAL"):
-        self.set_font('Arial', 'B', 48)
-        self.set_text_color(220, 220, 220)
-        self.rotate(45)
-        self.text(self.w / 3, self.h / 2, text)
-        self.rotate(0)
-    
-    def apply_security(self, password=None, permissions=None):
-        if password:
-            # Simple password protection - real implementation would use encryption
-            self.metadata['password'] = password
-        if permissions:
-            self.metadata['permissions'] = permissions
-    
-    def generate(self):
-        # Apply final security settings
-        if self.config.get('encrypt', False):
-            self.apply_security(
-                self.config.get('password'),
-                self.config.get('permissions', ['print'])
+    def _create_styles(self):
+        styles = getSampleStyleSheet()
+        styles.add({
+            'Title': styles['Title'].clone(
+                'Title',
+                fontName=self.config['font_family'],
+                fontSize=self.config['title_font_size'],
+                textColor=self.config['primary_color'],
+                spaceAfter=6
+            ),
+            'Heading1': styles['Heading1'].clone(
+                'Heading1',
+                fontName=f"{self.config['font_family']}-Bold",
+                fontSize=self.config['heading_font_size'],
+                textColor=self.config['primary_color'],
+                spaceBefore=12,
+                spaceAfter=6
+            ),
+            'Heading2': styles['Heading2'].clone(
+                'Heading2',
+                fontName=f"{self.config['font_family']}-Bold",
+                fontSize=self.config['font_size'] + 2,
+                textColor=self.config['secondary_color'],
+                spaceBefore=10,
+                spaceAfter=4
+            ),
+            'Body': styles['BodyText'].clone(
+                'Body',
+                fontName=self.config['font_family'],
+                fontSize=self.config['font_size'],
+                textColor=colors.black,
+                spaceAfter=6
+            ),
+            'TableHeader': styles['BodyText'].clone(
+                'TableHeader',
+                fontName=f"{self.config['font_family']}-Bold",
+                fontSize=self.config['font_size'],
+                textColor=colors.white,
+                alignment=1
+            ),
+            'TableCell': styles['BodyText'].clone(
+                'TableCell',
+                fontName=self.config['font_family'],
+                fontSize=self.config['font_size'],
+                textColor=colors.black,
+                alignment=0
+            ),
+            'Warning': styles['BodyText'].clone(
+                'Warning',
+                fontName=self.config['font_family'],
+                fontSize=self.config['font_size'],
+                textColor=(0.8, 0.2, 0),
+                backColor=(1, 0.95, 0.9),
+                borderPadding=5,
+                borderWidth=1,
+                borderColor=(0.8, 0.6, 0),
+                spaceAfter=6
+            ),
+            'Footer': styles['BodyText'].clone(
+                'Footer',
+                fontName=self.config['font_family'],
+                fontSize=8,
+                textColor=self.config['secondary_color'],
+                alignment=2
             )
-        
-        # Generate TOC if requested
-        if self.config.get('toc', True):
-            self.add_table_of_contents()
-        
-        # Apply watermark if needed
-        if self.config.get('watermark'):
-            self.add_watermark(self.config['watermark'])
-        
-        # Output to bytes buffer
-        pdf_bytes_io = BytesIO()
-        self.output(pdf_bytes_io)
-        pdf_bytes_io.seek(0)
-        return pdf_bytes_io
+        })
+        return styles
 
-def generate_enhanced_pdf_report(scenarios, valve, op_points, req_cvs, warnings, 
-                                cavitation_info, simulation_data=None, 
-                                plot_bytes=None, logo_bytes=None, logo_type=None):
-    try:
-        # Configuration
-        config = {
-            'title': 'Professional Valve Sizing Report',
-            'author': 'VASTAŞ Engineering',
-            'subject': 'Control Valve Analysis',
-            'keywords': 'valve, sizing, engineering, simulation',
-            'toc': True,
-            'watermark': 'VASTAŞ CONFIDENTIAL',
-            'font_dir': '/fonts'  # Path to custom fonts
-        }
+    def add_title(self, text):
+        self.elements.append(Paragraph(text, self.styles['Title']))
+        self.elements.append(Spacer(1, 0.2 * inch))
+
+    def add_heading(self, text, level=1):
+        style = f'Heading{level}'
+        self.current_section = text
+        self.toc.append((text, level))
+        self.elements.append(Paragraph(text, self.styles[style]))
+        self.elements.append(Spacer(1, 0.1 * inch))
+
+    def add_text(self, text, style='Body'):
+        if isinstance(text, list):
+            for line in text:
+                self.elements.append(Paragraph(line, self.styles[style]))
+        else:
+            self.elements.append(Paragraph(text, self.styles[style]))
+        self.elements.append(Spacer(1, 0.05 * inch))
+
+    def add_warning(self, text):
+        self.add_text(f"⚠️ {text}", 'Warning')
+
+    def add_table(self, headers, data, col_widths=None, style=None):
+        # Prepare table data
+        table_data = [headers]
+        table_data.extend(data)
         
-        pdf = EnhancedPDFReport(logo_bytes=logo_bytes, logo_type=logo_type, config=config)
+        # Create table
+        if not col_widths:
+            col_widths = [1] * len(headers)
         
-        # Cover page
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 24)
-        pdf.cell(0, 40, "Control Valve Sizing Report", 0, 1, 'C')
-        pdf.set_font('Arial', '', 16)
-        pdf.cell(0, 20, f"Valve: {valve.size}\" E{valve.valve_type}{valve.rating_class}", 0, 1, 'C')
-        pdf.cell(0, 20, f"Generated on {datetime.now().strftime('%Y-%m-%d')}", 0, 1, 'C')
-        pdf.ln(30)
+        table = Table(table_data, colWidths=[width * inch for width in col_widths])
         
-        if pdf.logo_bytes:
-            pdf.image(BytesIO(pdf.logo_bytes), x=pdf.w / 2 - 50, w=100)
-        
-        # Table of Contents will be auto-added at end if config['toc'] is True
-        
-        # Executive Summary
-        pdf.chapter_title("Executive Summary")
-        pdf.add_paragraph("This report presents the sizing analysis for the selected control valve "
-                         "across multiple operating scenarios. Key findings include:")
-        
-        summary_points = [
-            f"- Valve {valve.size}\" E{valve.valve_type}{valve.rating_class} selected for all scenarios",
-            f"- Operating points range from {min(op_points):.1f}% to {max(op_points):.1f}% open",
-            f"- Cavitation risk detected in {sum(1 for info in cavitation_info if 'risk' in info)} scenarios"
-        ]
-        for point in summary_points:
-            pdf.add_paragraph(point)
-        
-        # Valve Details
-        pdf.chapter_title("Valve Details")
-        pdf.add_section("Specifications")
-        valve_specs = [
-            ["Size", f"{valve.size}\""],
-            ["Type", "Globe" if valve.valve_type == 3 else "Axial"],
-            ["Rating Class", valve.rating_class],
-            ["Fl (Liquid Recovery)", f"{valve.fl:.3f}"],
-            ["Xt (Pressure Drop Ratio)", f"{valve.xt:.3f}"],
-            ["Fd (Valve Style Modifier)", f"{valve.fd:.2f}"],
-            ["Internal Diameter", f"{valve.diameter:.2f} in"]
-        ]
-        pdf.add_table(["Parameter", "Value"], valve_specs)
-        
-        pdf.add_section("Cv Characteristics")
-        cv_table_data = []
-        for open_percent, cv in valve.cv_table.items():
-            cv_table_data.append([f"{open_percent}%", f"{cv:.1f}"])
-        pdf.add_table(["Opening %", "Cv Value"], cv_table_data)
-        
-        # Sizing Results
-        pdf.chapter_title("Sizing Results")
-        results_data = []
-        for i, scenario in enumerate(scenarios):
-            actual_cv = valve.get_cv_at_opening(op_points[i])
-            margin = (actual_cv / req_cvs[i] - 1) * 100 if req_cvs[i] > 0 else 0
-            status = "Optimal" if 20 <= op_points[i] <= 80 else "Caution" 
-            results_data.append([
-                scenario["name"],
-                f"{req_cvs[i]:.1f}",
-                f"{valve.size}\"",
-                f"{op_points[i]:.1f}%",
-                f"{actual_cv:.1f}",
-                f"{margin:.1f}%",
-                status,
-                warnings[i] + (" " + cavitation_info[i] if cavitation_info[i] else "")
+        # Apply default style if none provided
+        if not style:
+            style = TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), self.config['primary_color']),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONT', (0, 0), (-1, 0), f"{self.config['font_family']}-Bold", self.config['font_size']),
+                ('FONT', (0, 1), (-1, -1), self.config['font_family'], self.config['font_size']),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                ('BOX', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ])
-        pdf.add_table(
-            headers=['Scenario', 'Req Cv', 'Valve Size', 'Opening %', 'Actual Cv', 'Margin %', 'Status', 'Notes'],
-            data=results_data,
-            col_widths=[30, 20, 20, 20, 20, 20, 20, 40]
+        
+        table.setStyle(style)
+        self.elements.append(table)
+        self.elements.append(Spacer(1, 0.2 * inch))
+
+    def add_image(self, image_bytes, width=6*inch, caption=None):
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmpfile:
+                tmpfile.write(image_bytes)
+                tmp_path = tmpfile.name
+            
+            img = Image(tmp_path, width=width)
+            img.hAlign = 'CENTER'
+            self.elements.append(img)
+            
+            if caption:
+                self.add_text(f"<i>{caption}</i>", 'Body')
+            
+            os.unlink(tmp_path)
+            self.elements.append(Spacer(1, 0.2 * inch))
+            return True
+        except Exception as e:
+            self.add_warning(f"Failed to insert image: {str(e)}")
+            return False
+
+    def add_page_break(self):
+        self.elements.append(PageBreak())
+
+    def add_toc(self):
+        toc_elements = []
+        toc_elements.append(Paragraph("Table of Contents", self.styles['Heading1']))
+        
+        for section, level in self.toc:
+            indent = (level - 1) * 0.3
+            toc_elements.append(Paragraph(
+                f"{'&nbsp;' * int(indent * 10)}• {section}", 
+                self.styles['Body']
+            ))
+        
+        # Insert TOC at beginning
+        toc_elements.extend(self.elements)
+        self.elements = toc_elements
+
+    def build_pdf(self):
+        # Create PDF document
+        buffer = BytesIO()
+        
+        page_size = A4 if self.config['page_size'] == 'A4' else letter
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=page_size,
+            leftMargin=self.config['margin_left'] * mm,
+            rightMargin=self.config['margin_right'] * mm,
+            topMargin=self.config['margin_top'] * mm,
+            bottomMargin=self.config['margin_bottom'] * mm
         )
         
-        # Simulation Results
-        if simulation_data:
-            pdf.chapter_title("Simulation Analysis")
-            
-            # Parameter sensitivity
-            if 'sensitivity' in simulation_data:
-                pdf.add_sensitivity_analysis(simulation_data['sensitivity'])
-            
-            # Statistical analysis
-            if 'flow_data' in simulation_data:
-                pdf.add_statistical_summary(simulation_data['flow_data'])
-            
-            # Error bars
-            if 'error_bars' in simulation_data:
-                pdf.add_error_bars(
-                    simulation_data['error_bars']['x'],
-                    simulation_data['error_bars']['y'],
-                    simulation_data['error_bars']['yerr'],
-                    "Measurement Uncertainty",
-                    "Flow Rate (m³/h)",
-                    "Pressure Drop (bar)"
+        # Add watermark if configured
+        if self.config.get('watermark'):
+            watermark = self._create_watermark()
+            self.elements.insert(0, watermark)
+        
+        # Build PDF
+        doc.build(
+            self.elements,
+            onFirstPage=self._add_header_footer,
+            onLaterPages=self._add_header_footer
+        )
+        
+        # Apply security if configured
+        pdf_bytes = buffer.getvalue()
+        if self.config.get('encryption'):
+            pdf_bytes = self._apply_encryption(pdf_bytes)
+        
+        # Compress PDF
+        if self.config.get('compress', True):
+            pdf_bytes = zlib.compress(pdf_bytes)
+        
+        return pdf_bytes
+
+    def _add_header_footer(self, canvas, doc):
+        # Save current state
+        canvas.saveState()
+        
+        # Draw header
+        header_height = 0.5 * inch
+        canvas.setFont(f"{self.config['font_family']}-Bold", 10)
+        
+        # Add logo
+        if self.logo_bytes:
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{self.logo_type.lower()}") as tmpfile:
+                    tmpfile.write(self.logo_bytes)
+                    tmp_path = tmpfile.name
+                
+                logo_width = 1.5 * inch
+                canvas.drawImage(
+                    tmp_path,
+                    doc.leftMargin,
+                    doc.height + doc.topMargin - header_height,
+                    width=logo_width,
+                    height=header_height,
+                    preserveAspectRatio=True,
+                    mask='auto'
                 )
-            
-            # Add custom charts
-            if 'charts' in simulation_data:
-                for chart in simulation_data['charts']:
-                    pdf.add_simulation_chart(
-                        chart['data'],
-                        chart['type'],
-                        chart.get('title', ''),
-                        chart.get('x_label', ''),
-                        chart.get('y_label', '')
-                    )
+                os.unlink(tmp_path)
+                text_x = doc.leftMargin + logo_width + 0.2 * inch
+            except Exception:
+                text_x = doc.leftMargin
+        else:
+            text_x = doc.leftMargin
         
-        # Detailed Calculations
-        pdf.chapter_title("Detailed Calculations")
-        for i, scenario in enumerate(scenarios):
-            pdf.add_section(f"Scenario {i+1}: {scenario['name']}", level=2)
-            
-            # Math equation example
-            pdf.add_math_equation(r"Q = C_v \sqrt{\frac{\Delta P}{SG}}")
-            
-            col1, col2 = pdf.columns(2)  # Requires custom columns implementation
-            with col1:
-                pdf.add_paragraph("**Process Conditions**")
-                cond_data = [
-                    ["Fluid Type", scenario['fluid_type'].title()],
-                    ["Flow Rate", f"{scenario['flow']} {'m³/h' if scenario['fluid_type']=='liquid' else 'kg/h' if scenario['fluid_type']=='steam' else 'std m³/h'}"],
-                    ["Inlet Pressure", f"{scenario['p1']:.2f} bar a"],
-                    ["Outlet Pressure", f"{scenario['p2']:.2f} bar a"],
-                    ["Pressure Drop", f"{scenario['p1'] - scenario['p2']:.2f} bar"],
-                    ["Temperature", f"{scenario['temp']}°C"]
-                ]
-                pdf.add_table(["Parameter", "Value"], cond_data)
-            
-            with col2:
-                pdf.add_paragraph("**Fluid Properties**")
-                fluid_data = []
-                if scenario["fluid_type"] == "liquid":
-                    fluid_data.append(["Specific Gravity", f"{scenario['sg']:.3f}"])
-                    fluid_data.append(["Viscosity", f"{scenario['visc']} cSt"])
-                    fluid_data.append(["Vapor Pressure", f"{scenario['pv']:.4f} bar a"])
-                    fluid_data.append(["Critical Pressure", f"{scenario['pc']:.2f} bar a"])
-                elif scenario["fluid_type"] == "gas":
-                    fluid_data.append(["Specific Gravity", f"{scenario['sg']:.3f}"])
-                    fluid_data.append(["Specific Heat Ratio", f"{scenario['k']:.3f}"])
-                    fluid_data.append(["Compressibility Factor", f"{scenario['z']:.3f}"])
-                else:
-                    fluid_data.append(["Density", f"{scenario['rho']:.3f} kg/m³"])
-                    fluid_data.append(["Specific Heat Ratio", f"{scenario['k']:.3f}"])
-                fluid_data.append(["Pipe Diameter", f"{scenario['pipe_d']} in"])
-                pdf.add_table(["Property", "Value"], fluid_data)
-            
-            # Add flow vs pressure plot
-            if plot_bytes:
-                pdf.add_plot(plot_bytes, f"Flow vs Pressure Drop - {scenario['name']}")
+        # Header text
+        canvas.setFillColorRGB(*self.config['primary_color'])
+        canvas.drawString(
+            text_x,
+            doc.height + doc.topMargin - 0.3 * inch,
+            self.config['metadata']['title']
+        )
         
-        # Appendices
-        pdf.chapter_title("Appendices")
-        pdf.add_section("Reference Standards")
-        pdf.add_paragraph("This analysis follows industry standards:")
-        standards = [
-            "IEC 60534-2-1: Industrial-process control valves - Part 2-1: Flow capacity",
-            "ISA-75.01.01: Flow Equations for Sizing Control Valves",
-            "ANSI/ISA-75.02: Control Valve Capacity Test Procedures"
-        ]
-        for standard in standards:
-            pdf.add_paragraph(f"- {standard}")
+        # Page number
+        page_num = canvas.getPageNumber()
+        canvas.drawRightString(
+            doc.width + doc.leftMargin,
+            doc.height + doc.topMargin - 0.3 * inch,
+            f"Page {page_num}"
+        )
         
-        # Generate and return PDF
-        return pdf.generate()
+        # Draw footer
+        footer_height = 0.3 * inch
+        canvas.setFont(self.config['font_family'], 8)
+        canvas.setFillColorRGB(*self.config['secondary_color'])
+        
+        # Footer left
+        canvas.drawString(
+            doc.leftMargin,
+            footer_height / 2,
+            f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+        
+        # Footer right
+        canvas.drawRightString(
+            doc.width + doc.leftMargin,
+            footer_height / 2,
+            f"Confidential - {self.config['metadata']['author']}"
+        )
+        
+        # Draw line separator
+        canvas.setStrokeColorRGB(0.8, 0.8, 0.8)
+        canvas.line(
+            doc.leftMargin, 
+            doc.height + doc.topMargin - header_height - 2,
+            doc.width + doc.leftMargin,
+            doc.height + doc.topMargin - header_height - 2
+        )
+        
+        # Restore state
+        canvas.restoreState()
+
+    def _create_watermark(self):
+        watermark = self.config['watermark']
+        if isinstance(watermark, str):
+            # Text watermark
+            return Paragraph(
+                f'<para align="center"><font size="48" color="gray" opacity="0.2">{watermark}</font></para>',
+                self.styles['Body']
+            )
+        elif isinstance(watermark, bytes):
+            # Image watermark
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmpfile:
+                    tmpfile.write(watermark)
+                    tmp_path = tmpfile.name
+                
+                img = Image(tmp_path, width=8*inch)
+                img.hAlign = 'CENTER'
+                os.unlink(tmp_path)
+                return img
+            except Exception:
+                return None
+        return None
+
+    def _apply_encryption(self, pdf_bytes):
+        # Placeholder for encryption implementation
+        # In production, use PyPDF2 or similar for encryption
+        return pdf_bytes
+
+def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitation_info, plot_bytes=None, logo_bytes=None, logo_type=None):
+    # Configuration - could be loaded from external file
+    config = {
+        'page_size': 'A4',
+        'font_family': 'Helvetica',
+        'font_size': 10,
+        'title_font_size': 16,
+        'heading_font_size': 12,
+        'primary_color': (0, 0.2, 0.4),   # Dark blue
+        'secondary_color': (0.4, 0.4, 0.4), # Gray
+        'watermark': 'VASTAŞ CONFIDENTIAL',
+        'metadata': {
+            'title': 'Control Valve Sizing Report',
+            'author': 'VASTAŞ Valve Sizing Software',
+            'subject': 'Technical Report',
+            'keywords': 'valve, sizing, engineering'
+        },
+        'encryption': {
+            'user_password': 'vst',
+            'owner_password': 'vst2024',
+            'permissions': ['print', 'copy']
+        }
+    }
     
-    except Exception as e:
-        error_msg = f"PDF generation error: {str(e)}\n\n{traceback.format_exc()}"
-        st.error(error_msg)
+    # Create PDF instance
+    pdf = EnhancedPDFReport(logo_bytes=logo_bytes, logo_type=logo_type, config=config)
+    
+    # Register fonts (should be done once at app start)
+    try:
+        pdfmetrics.registerFont(TTFont('Helvetica', 'Helvetica.ttf'))
+        pdfmetrics.registerFont(TTFont('Helvetica-Bold', 'Helvetica-Bold.ttf'))
+    except:
+        # Fallback to default fonts
+        pass
+    
+    # Title Page
+    pdf.add_title("Control Valve Sizing Report")
+    pdf.add_text(f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    pdf.add_text(f"Prepared for: Valve Sizing Analysis")
+    pdf.add_page_break()
+    
+    # Table of Contents
+    pdf.add_heading("Table of Contents", level=1)
+    pdf.add_page_break()
+    
+    # Project Information
+    pdf.add_heading("Project Information", level=1)
+    pdf.add_text([
+        "<b>Project:</b> Valve Sizing Analysis",
+        "<b>Generated by:</b> Valve Sizing Software",
+        "<b>Date:</b> " + datetime.now().strftime("%Y-%m-%d")
+    ])
+    
+    # Valve Details
+    pdf.add_heading("Selected Valve Details", level=1)
+    valve_details = [
+        f"<b>Size:</b> {valve.size}\" E{valve.valve_type}{valve.rating_class}",
+        f"<b>Type:</b> {'Globe' if valve.valve_type == 3 else 'Axial'}",
+        f"<b>Rating Class:</b> {valve.rating_class}",
+        f"<b>Fl (Liquid Recovery):</b> {valve.fl:.3f}",
+        f"<b>Xt (Pressure Drop Ratio):</b> {valve.xt:.3f}",
+        f"<b>Fd (Valve Style Modifier):</b> {valve.fd:.2f}",
+        f"<b>Internal Diameter:</b> {valve.diameter:.2f} in"
+    ]
+    pdf.add_text(valve_details)
+    
+    # Valve Cv Characteristics
+    pdf.add_heading("Valve Cv Characteristics", level=1)
+    cv_table_data = []
+    for open_percent, cv in valve.cv_table.items():
+        cv_table_data.append([f"{open_percent}%", f"{cv:.1f}"])
+    pdf.add_table(
+        headers=['Opening %', 'Cv Value'],
+        data=cv_table_data,
+        col_widths=[1.5, 1.5]
+    )
+    
+    # Sizing Results
+    pdf.add_heading("Sizing Results", level=1)
+    results_data = []
+    for i, scenario in enumerate(scenarios):
+        actual_cv = valve.get_cv_at_opening(op_points[i])
+        margin = (actual_cv / req_cvs[i] - 1) * 100 if req_cvs[i] > 0 else 0
         
-        # Create minimal error PDF
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 10, "Report Generation Failed", 0, 1)
-        pdf.set_font('Arial', '', 12)
-        pdf.multi_cell(0, 8, f"Error: {str(e)}\n\n{traceback.format_exc()}")
+        status = "✅" if margin >= 20 and "Severe" not in cavitation_info[i] else "⚠️" if margin >= 0 else "❌"
         
-        pdf_bytes_io = BytesIO()
-        pdf.output(pdf_bytes_io)
-        pdf_bytes_io.seek(0)
-        return pdf_bytes_io
+        results_data.append([
+            scenario["name"],
+            f"{req_cvs[i]:.1f}",
+            f"{valve.size}\"",
+            f"{op_points[i]:.1f}%",
+            f"{actual_cv:.1f}",
+            f"{margin:.1f}%",
+            f"{status} {warnings[i]} {cavitation_info[i]}"
+        ])
+    
+    pdf.add_table(
+        headers=['Scenario', 'Req Cv', 'Valve Size', 'Opening %', 'Actual Cv', 'Margin %', 'Status'],
+        data=results_data,
+        col_widths=[1.5, 1, 1, 1, 1, 1, 2.5],
+        style=TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), config['primary_color']),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (5, -1), 'CENTER'),
+            ('ALIGN', (6, 0), (6, -1), 'LEFT'),
+            ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', config['font_size']),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')]),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ])
+    )
+    
+    # Detailed Calculations
+    pdf.add_heading("Detailed Calculations", level=1)
+    for i, scenario in enumerate(scenarios):
+        pdf.add_heading(f"Scenario {i+1}: {scenario['name']}", level=2)
+        
+        # Basic scenario info
+        pdf.add_text([
+            f"<b>Fluid Type:</b> {scenario['fluid_type'].title()}",
+            f"<b>Flow Rate:</b> {scenario['flow']} "
+            f"{'m³/h' if scenario['fluid_type']=='liquid' else 'kg/h' if scenario['fluid_type']=='steam' else 'std m³/h'}",
+            f"<b>Inlet Pressure (P1):</b> {scenario['p1']:.2f} bar a",
+            f"<b>Outlet Pressure (P2):</b> {scenario['p2']:.2f} bar a",
+            f"<b>Pressure Drop (dP):</b> {scenario['p1'] - scenario['p2']:.2f} bar",
+            f"<b>Temperature:</b> {scenario['temp']}°C",
+            f"<b>Pipe Diameter:</b> {scenario['pipe_d']} in"
+        ])
+        
+        # Fluid-specific properties
+        if scenario["fluid_type"] == "liquid":
+            pdf.add_text([
+                f"<b>Specific Gravity:</b> {scenario['sg']:.3f}",
+                f"<b>Viscosity:</b> {scenario['visc']} cSt",
+                f"<b>Vapor Pressure:</b> {scenario['pv']:.4f} bar a",
+                f"<b>Critical Pressure:</b> {scenario['pc']:.2f} bar a"
+            ])
+        elif scenario["fluid_type"] == "gas":
+            pdf.add_text([
+                f"<b>Specific Gravity (air=1):</b> {scenario['sg']:.3f}",
+                f"<b>Specific Heat Ratio (k):</b> {scenario['k']:.3f}",
+                f"<b>Compressibility Factor (Z):</b> {scenario['z']:.3f}"
+            ])
+        else:
+            pdf.add_text([
+                f"<b>Density:</b> {scenario['rho']:.3f} kg/m³",
+                f"<b>Specific Heat Ratio (k):</b> {scenario['k']:.3f}"
+            ])
+        
+        # Results summary
+        actual_cv = valve.get_cv_at_opening(op_points[i])
+        margin = (actual_cv / req_cvs[i] - 1) * 100 if req_cvs[i] > 0 else 0
+        
+        pdf.add_text([
+            f"<b>Required Cv:</b> {req_cvs[i]:.1f}",
+            f"<b>Operating Point:</b> {op_points[i]:.1f}% open",
+            f"<b>Actual Cv at Operating Point:</b> {actual_cv:.1f}",
+            f"<b>Margin:</b> {margin:.1f}%",
+            f"<b>Warnings:</b> {warnings[i]}{', ' + cavitation_info[i] if cavitation_info[i] else ''}"
+        ])
+        
+        # Add warning if needed
+        if margin < 0 or "Severe" in cavitation_info[i]:
+            pdf.add_warning("Critical issue detected - valve may be undersized or at risk of cavitation")
+        
+        # Add plot if available
+        if plot_bytes:
+            pdf.add_heading("Valve Cv Characteristic Curve", level=3)
+            pdf.add_image(plot_bytes, width=6*inch, caption="Valve Cv Characteristic Curve")
+        
+        # Add page break between scenarios
+        if i < len(scenarios) - 1:
+            pdf.add_page_break()
+    
+    # Generate TOC (must be after all content)
+    pdf.add_toc()
+    
+    # Build and return PDF
+    return pdf.build_pdf()
 
 # ========================
 # SIMULATION RESULTS
