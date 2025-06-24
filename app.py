@@ -768,7 +768,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             ["Flow Rate", f"{scenario['flow']} {'m³/h' if scenario['fluid_type']=='liquid' else 'kg/h' if scenario['fluid_type']=='steam' else 'std m³/h'}"],
             ["Inlet Pressure (P1)", f"{scenario['p1']:.2f} bar a"],
             ["Outlet Pressure (P2)", f"{scenario['p2']:.2f} bar a"],
-            ["Pressure Drop (ΔP)", f"{scenario['p1'] - scenario['p2']:.2f} bar"],
+            ["Pressure Drop (DeltaP)", f"{scenario['p1'] - scenario['p2']:.2f} bar"],
             ["Temperature", f"{scenario['temp']}°C"],
             ["Pipe Diameter", f"{scenario['pipe_d']} in"]
         ]
@@ -865,7 +865,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
     This report follows ISA/IEC standards for control valve sizing:
     
     1. Liquid Flow (IEC 60534-2-1):
-        Cv = Q * √(SG/ΔP) * Fr (for non-choked flow)
+        Cv = Q * √(SG/DeltaP) * Fr (for non-choked flow)
         Cv = Q * √(SG) / (Fl * √(P1 - Ff*Pv)) * Fr (for choked flow)
         
     2. Gas Flow (IEC 60534-2-3):
@@ -878,7 +878,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
         Q = Flow rate (m³/h for liquids, std m³/h for gases)
         M = Mass flow rate (kg/h)
         SG = Specific gravity (liquid: water=1, gas: air=1)
-        ΔP = Pressure drop (bar)
+        DeltaP = Pressure drop (bar)
         P1 = Inlet pressure (bar a)
         P2 = Outlet pressure (bar a)
         Pv = Vapor pressure (bar a)
@@ -887,7 +887,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
         Fr = Reynolds number factor
         T = Temperature (K)
         Z = Compressibility factor
-        X = Pressure drop ratio (ΔP/P1)
+        X = Pressure drop ratio (DeltaP/P1)
         Y = Expansion factor
         ρ = Density (kg/m³)
     """
@@ -1960,7 +1960,7 @@ def main():
                                 st.markdown(f"**Fr (Viscosity Correction):** {result['details'].get('fr', 1.0):.4f}")
                                 st.markdown(f"**Reynolds Number:** {result['details'].get('reynolds', 0):.0f}")
                         
-                        st.markdown(f"**Max Pressure Drop (ΔPmax):** {result['details'].get('dp_max', 0):.2f} bar")
+                        st.markdown(f"**Max Pressure Drop (DeltaPmax):** {result['details'].get('dp_max', 0):.2f} bar")
                         st.markdown(f"**Average Velocity in Valve:** {result.get('velocity', 0):.2f} m/s")
                         
                         if scenario["fluid_type"] == "liquid":
