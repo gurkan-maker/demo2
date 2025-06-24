@@ -674,7 +674,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
         ["Analysis Date", datetime.now().strftime("%Y-%m-%d")],
         ["Number of Scenarios", str(len(scenarios))]
     pdf.add_key_value_table(["Parameter", "Value"], summary_data)
-    pdf.ln(10)
+    pdf.ln(10)]
     
     # Overall status
     status_counts = {"Optimal": 0, "Warning": 0, "Risk": 0, "Critical": 0}
