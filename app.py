@@ -211,7 +211,6 @@ def calculate_ff(pv: float, pc: float) -> float:
     if pc <= 0:
         return 0.96
     return 0.96 - 0.28 * math.sqrt(pv / pc)
-
 # ========================
 # VALVE DATABASE
 # ========================
