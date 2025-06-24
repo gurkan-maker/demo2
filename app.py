@@ -698,14 +698,15 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
 # ========================
 def get_simulation_image(valve_name):
     simulation_images = {
-        "0.5\" E31": "https://via.placeholder.com/1200x900.png?text=High-Res+Simulation+0.5E31",
-        "1\" E31": "https://via.placeholder.com/1200x900.png?text=High-Res+Simulation+1E31",
-        "1.5\" E31": "https://via.placeholder.com/1200x900.png?text=High-Res+Simulation+1.5E31",
-        "2\" E31": "https://via.placeholder.com/1200x900.png?text=High-Res+Simulation+2E31",
-        "3\" E32": "https://via.placeholder.com/1200x900.png?text=High-Res+Simulation+3E32",
-        "4\" E32": "https://via.placeholder.com/1200x900.png?text=High-Res+Simulation+4E32",
-        "6\" E32": "https://via.placeholder.com/1200x900.png?text=High-Res+Simulation+6E32",
-        "8\" E32": "https://via.placeholder.com/1200x900.png?text=High-Res+Simulation+8E32",
+        
+        "2\" E33": "https://raw.githubusercontent.com/gurkan-maker/demo2/main/2e33.png",
+        "4\" E33": "https://raw.githubusercontent.com/gurkan-maker/demo2/main/4e33.png",
+        "8\" E33": "https://raw.githubusercontent.com/gurkan-maker/demo2/main/8e33.png",
+        "8\" E43": "https://raw.githubusercontent.com/gurkan-maker/demo2/main/8e43.png",
+        "12\" E33": "https://raw.githubusercontent.com/gurkan-maker/demo2/main/12e33.png",
+        "16\" E33": "https://raw.githubusercontent.com/gurkan-maker/demo2/main/16e33.png",
+        "20\" E33": "https://raw.githubusercontent.com/gurkan-maker/demo2/main/20e33.png",
+        "30\" E33": "https://raw.githubusercontent.com/gurkan-maker/demo2/main/30e33.png",
     }
     return simulation_images.get(valve_name, "https://via.placeholder.com/1200x900.png?text=Simulation+Not+Available")
 
