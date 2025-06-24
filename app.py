@@ -601,7 +601,7 @@ class PDFReport(FPDF):
         # Company info
         self.set_y(250)
         self.set_font('Arial', 'I', 12)
-        self.cell(0, 10, 'VASTAŞ Engineering Solutions', 0, 1, 'C')
+        self.cell(0, 10, 'VASTAS Engineering Solutions', 0, 1, 'C')
         self.cell(0, 10, 'Specialized in Flow Control Systems', 0, 1, 'C')
         
     def chapter_title(self, title):
@@ -1760,8 +1760,8 @@ def main():
         st.markdown("**ISA/IEC Standards Compliant Valve Sizing with Enhanced Visualization**")
     
     with st.sidebar:
-        st.header("VASTAŞ Logo")
-        logo_upload = st.file_uploader("Upload VASTAŞ logo", type=["png", "jpg", "jpeg"], key="logo_uploader")
+        st.header("VASTAS Logo")
+        logo_upload = st.file_uploader("Upload VASTAS logo", type=["png", "jpg", "jpeg"], key="logo_uploader")
         if logo_upload is not None:
             st.session_state.logo_bytes = logo_upload.getvalue()
             st.session_state.logo_type = "PNG"
@@ -1771,7 +1771,7 @@ def main():
         elif os.path.exists("logo.png"):
             st.image(Image.open("logo.png"), use_container_width=True)
         else:
-            st.image("https://via.placeholder.com/300x100?text=VASTAŞ+Logo", use_container_width=True)
+            st.image("https://via.placeholder.com/300x100?text=VASTAS+Logo", use_container_width=True)
         
         st.header("Valve Selection")
         valve_options = create_valve_dropdown()
