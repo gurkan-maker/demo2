@@ -534,7 +534,7 @@ def check_cavitation(p1: float, p2: float, pv: float, fl: float, pc: float) -> t
         return False, sigma, km, "Mild cavitation risk"
     return False, sigma, km, "Minimal cavitation risk"
 
-# ========================
+ ========================
 # PDF REPORT GENERATION
 # ========================
 class PDFReport(FPDF):
@@ -545,30 +545,69 @@ class PDFReport(FPDF):
         self.set_auto_page_break(auto=True, margin=15)
         
     def header(self):
+        # Only show header on pages after cover page
+        if self.page_no() > 1:
+            if self.logo_bytes and self.logo_type:
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{self.logo_type.lower()}") as tmpfile:
+                        tmpfile.write(self.logo_bytes)
+                        tmpfile_path = tmpfile.name
+                    self.image(tmpfile_path, x=10, y=8, w=30)
+                    os.unlink(tmpfile_path)
+                except Exception as e:
+                    self.cell(0, 10, f"Logo error: {str(e)}", 0, 1)
+            self.set_font('Arial', 'B', 14)
+            self.cell(0, 10, f'Control Valve Sizing Report - Page {self.page_no()-1}', 0, 1, 'C')
+            self.ln(10)
+        
+    def footer(self):
+        if self.page_no() > 1:  # Skip footer on cover page
+            self.set_y(-15)
+            self.set_font('Arial', 'B', 8)
+            self.cell(0, 10, f'Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 0, 'C')
+        
+    def cover_page(self, project_name, valve_name):
+        self.add_page()
+        # Add logo at top center
         if self.logo_bytes and self.logo_type:
             try:
+                logo_width = 60
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{self.logo_type.lower()}") as tmpfile:
                     tmpfile.write(self.logo_bytes)
                     tmpfile_path = tmpfile.name
-                self.image(tmpfile_path, x=10, y=8, w=30)
+                self.image(tmpfile_path, x=(self.w - logo_width)/2, y=20, w=logo_width)
                 os.unlink(tmpfile_path)
-            except Exception as e:
-                self.cell(0, 10, f"Logo error: {str(e)}", 0, 1)
-        self.set_font('Arial', 'B', 16)
-        self.cell(0, 10, 'Control Valve Sizing Report', 0, 1, 'C')
-        self.set_font('Arial', 'B', 10)
-        self.cell(0, 10, f'Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 1, 'C')
-        self.ln(10)
+            except:
+                pass
         
-    def footer(self):
-        self.set_y(-15)
-        self.set_font('Arial', 'B', 8)
-        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+        # Title and project info
+        self.set_y(100)
+        self.set_font('Arial', 'B', 24)
+        self.cell(0, 15, 'CONTROL VALVE SIZING REPORT', 0, 1, 'C')
+        self.ln(20)
+        
+        self.set_font('Arial', 'B', 18)
+        self.cell(0, 10, project_name, 0, 1, 'C')
+        self.ln(15)
+        
+        self.set_font('Arial', '', 16)
+        self.cell(0, 10, f'Selected Valve: {valve_name}', 0, 1, 'C')
+        self.ln(20)
+        
+        self.set_font('Arial', '', 14)
+        self.cell(0, 10, f'Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 1, 'C')
+        self.ln(30)
+        
+        # Company info
+        self.set_y(250)
+        self.set_font('Arial', 'I', 12)
+        self.cell(0, 10, 'VASTAŞ Engineering Solutions', 0, 1, 'C')
+        self.cell(0, 10, 'Specialized in Flow Control Systems', 0, 1, 'C')
         
     def chapter_title(self, title):
         self.set_font('Arial', 'B', 12)
-        self.set_fill_color(200, 220, 255)
-        self.cell(0, 6, title, 0, 1, 'L', 1)
+        self.set_fill_color(230, 240, 255)  # Light blue background
+        self.cell(0, 8, title, 0, 1, 'L', 1)
         self.ln(4)
         
     def chapter_body(self, body):
@@ -576,8 +615,9 @@ class PDFReport(FPDF):
         self.multi_cell(0, 5, body)
         self.ln()
         
-    def add_table(self, headers, data):
-        col_widths = [40] * len(headers)
+    def add_table(self, headers, data, col_widths=None):
+        if col_widths is None:
+            col_widths = [40] * len(headers)
         self.set_font('Arial', 'B', 10)
         for i, header in enumerate(headers):
             self.cell(col_widths[i], 7, header, 1, 0, 'C')
@@ -587,38 +627,114 @@ class PDFReport(FPDF):
             for i, item in enumerate(row):
                 self.cell(col_widths[i], 6, str(item), 1)
             self.ln()
-
+            
+    def add_key_value_table(self, headers, data):
+        col_widths = [60, 80]
+        self.set_font('Arial', 'B', 10)
+        self.cell(col_widths[0], 7, headers[0], 1)
+        self.cell(col_widths[1], 7, headers[1], 1)
+        self.ln()
+        self.set_font('Arial', '', 10)
+        for key, value in data:
+            self.cell(col_widths[0], 6, key, 1)
+            self.cell(col_widths[1], 6, str(value), 1)
+            self.ln()
 def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitation_info, plot_bytes=None, logo_bytes=None, logo_type=None):
+    valve_display_name = get_valve_display_name(valve)
     pdf = PDFReport(logo_bytes=logo_bytes, logo_type=logo_type)
+    
+    # Add cover page
+    pdf.cover_page("Valve Sizing Analysis", valve_display_name)
+    
+    # Add table of contents
     pdf.add_page()
-    pdf.chapter_title('Project Information')
-    pdf.cell(0, 10, f'Project: Valve Sizing Analysis', 0, 1)
-    pdf.cell(0, 10, f'Generated by: Valve Sizing Software', 0, 1)
+    pdf.chapter_title('Table of Contents')
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(0, 6, '1. Executive Summary', 0, 1)
+    pdf.cell(0, 6, '2. Valve Specifications', 0, 1)
+    pdf.cell(0, 6, '3. Sizing Results Overview', 0, 1)
+    pdf.cell(0, 6, '4. Detailed Scenario Analysis', 0, 1)
+    pdf.cell(0, 6, '5. Valve Cv Characteristic Curve', 0, 1)
+    pdf.cell(0, 6, '6. Simulation Results', 0, 1)
+    pdf.ln(15)
+    
+    # 1. Executive Summary
+    pdf.add_page()
+    pdf.chapter_title('1. Executive Summary')
+    pdf.set_font('Arial', '', 10)
+    pdf.multi_cell(0, 5, "This report presents the sizing analysis and selection of a control valve based on the specified operating scenarios. The analysis includes fluid dynamics calculations, cavitation risk assessment, and performance evaluation.")
     pdf.ln(5)
     
-    pdf.chapter_title('Selected Valve Details')
-    valve_text = (
-        f"Size: {valve.size}\" E{valve.valve_type}{valve.rating_class}\n"
-        f"Type: {'Globe' if valve.valve_type == 3 else 'Axial'}\n"
-        f"Rating Class: {valve.rating_class}\n"
-        f"Fl (Liquid Recovery): {valve.fl:.3f}\n"
-        f"Xt (Pressure Drop Ratio): {valve.xt:.3f}\n"
-        f"Fd (Valve Style Modifier): {valve.fd:.2f}\n"
-        f"Internal Diameter: {valve.diameter:.2f} in"
-    )
-    pdf.chapter_body(valve_text)
+    # Key findings table
+    summary_data = [
+        ["Valve Model", valve_display_name],
+        ["Valve Size", f"{valve.size}\""],
+        ["Rating Class", valve.rating_class],
+        ["Valve Type", "Globe" if valve.valve_type == 3 else "Axial"],
+        ["Analysis Date", datetime.now().strftime("%Y-%m-%d")],
+        ["Number of Scenarios", str(len(scenarios))]
+    pdf.add_key_value_table(["Parameter", "Value"], summary_data)
+    pdf.ln(10)
     
+    # Overall status
+    status_counts = {"Optimal": 0, "Warning": 0, "Risk": 0, "Critical": 0}
+    for i, scenario in enumerate(scenarios):
+        status = "Optimal"
+        if "Severe" in cavitation_info[i]:
+            status = "Critical"
+        elif "Moderate" in cavitation_info[i]:
+            status = "Risk"
+        elif warnings[i]:
+            status = "Warning"
+        status_counts[status] += 1
+        
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 6, 'Scenario Status Summary:', 0, 1)
+    pdf.set_font('Arial', '', 10)
+    for status, count in status_counts.items():
+        pdf.cell(0, 6, f"- {status}: {count} scenario(s)", 0, 1)
+    pdf.ln(10)
+    
+    # 2. Valve Specifications
+    pdf.add_page()
+    pdf.chapter_title('2. Valve Specifications')
+    
+    # Valve technical details
+    valve_data = [
+        ["Model", valve_display_name],
+        ["Size", f"{valve.size}\""],
+        ["Rating Class", valve.rating_class],
+        ["Type", "Globe" if valve.valve_type == 3 else "Axial"],
+        ["Fl (Liquid Recovery)", f"{valve.fl:.3f}"],
+        ["Fd (Style Modifier)", f"{valve.fd:.2f}"],
+        ["Internal Diameter", f"{valve.diameter:.2f} in"],
+        ["Valve Style", "Characterized Cage" if valve.valve_type == 3 else "Axial Flow"]
+    ]
+    pdf.add_key_value_table(["Parameter", "Value"], valve_data)
+    pdf.ln(10)
+    
+    # Cv characteristics
     pdf.chapter_title('Valve Cv Characteristics')
     cv_table_data = []
     for open_percent, cv in valve.cv_table.items():
         cv_table_data.append([f"{open_percent}%", f"{cv:.1f}"])
     pdf.add_table(['Opening %', 'Cv Value'], cv_table_data)
     
-    pdf.chapter_title('Sizing Results')
+    # 3. Sizing Results Overview
+    pdf.add_page()
+    pdf.chapter_title('3. Sizing Results Overview')
     results_data = []
     for i, scenario in enumerate(scenarios):
         actual_cv = valve.get_cv_at_opening(op_points[i])
         margin = (actual_cv / req_cvs[i] - 1) * 100 if req_cvs[i] > 0 else 0
+        status = "Optimal"
+        if "Severe" in cavitation_info[i]:
+            status = "Critical"
+        elif "Moderate" in cavitation_info[i]:
+            status = "Risk"
+        elif warnings[i]:
+            status = "Warning"
+            
         results_data.append([
             scenario["name"],
             f"{req_cvs[i]:.1f}",
@@ -626,66 +742,156 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             f"{op_points[i]:.1f}%",
             f"{actual_cv:.1f}",
             f"{margin:.1f}%",
+            status,
             warnings[i] + (" " + cavitation_info[i] if cavitation_info[i] else "")
         ])
     pdf.add_table(
-        ['Scenario', 'Req Cv', 'Valve Size', 'Opening %', 'Actual Cv', 'Margin %', 'Warnings'],
-        results_data
+        ['Scenario', 'Req Cv', 'Size', 'Opening', 'Actual Cv', 'Margin', 'Status', 'Notes'],
+        results_data,
+        col_widths=[30, 20, 15, 20, 20, 20, 20, 45]
     )
     
-    pdf.chapter_title('Detailed Calculations')
+    # 4. Detailed Scenario Analysis
+    pdf.add_page()
+    pdf.chapter_title('4. Detailed Scenario Analysis')
     for i, scenario in enumerate(scenarios):
-        pdf.set_font('Arial', 'B', 10)
+        pdf.set_font('Arial', 'B', 12)
         pdf.cell(0, 10, f'Scenario {i+1}: {scenario["name"]}', 0, 1)
         pdf.set_font('Arial', '', 10)
-        calc_text = (
-            f"Fluid Type: {scenario['fluid_type'].title()}\n"
-            f"Flow Rate: {scenario['flow']} "
-            f"{'m³/h' if scenario['fluid_type']=='liquid' else 'kg/h' if scenario['fluid_type']=='steam' else 'std m³/h'}\n"
-            f"Inlet Pressure (P1): {scenario['p1']:.2f} bar a\n"
-            f"Outlet Pressure (P2): {scenario['p2']:.2f} bar a\n"
-            f"Pressure Drop (dP): {scenario['p1'] - scenario['p2']:.2f} bar\n"
-            f"Temperature: {scenario['temp']}°C\n"
-        )
+        
+        # Process conditions
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(0, 6, 'Process Conditions:', 0, 1)
+        pdf.set_font('Arial', '', 10)
+        cond_data = [
+            ["Fluid Type", scenario['fluid_type'].title()],
+            ["Flow Rate", f"{scenario['flow']} {'m³/h' if scenario['fluid_type']=='liquid' else 'kg/h' if scenario['fluid_type']=='steam' else 'std m³/h'}"],
+            ["Inlet Pressure (P1)", f"{scenario['p1']:.2f} bar a"],
+            ["Outlet Pressure (P2)", f"{scenario['p2']:.2f} bar a"],
+            ["Pressure Drop (ΔP)", f"{scenario['p1'] - scenario['p2']:.2f} bar"],
+            ["Temperature", f"{scenario['temp']}°C"],
+            ["Pipe Diameter", f"{scenario['pipe_d']} in"]
+        ]
+        pdf.add_key_value_table(["Parameter", "Value"], cond_data)
+        
+        # Fluid properties
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(0, 6, 'Fluid Properties:', 0, 1)
+        pdf.set_font('Arial', '', 10)
+        fluid_data = []
         if scenario["fluid_type"] == "liquid":
-            calc_text += (
-                f"Specific Gravity: {scenario['sg']:.3f}\n"
-                f"Viscosity: {scenario['visc']} cSt\n"
-                f"Vapor Pressure: {scenario['pv']:.4f} bar a\n"
-                f"Critical Pressure: {scenario['pc']:.2f} bar a\n"
-                f"Cavitation Status: {cavitation_info[i]}\n"
-            )
+            fluid_data.extend([
+                ["Specific Gravity", f"{scenario['sg']:.3f}"],
+                ["Viscosity", f"{scenario['visc']} cSt"],
+                ["Vapor Pressure", f"{scenario['pv']:.4f} bar a"],
+                ["Critical Pressure", f"{scenario['pc']:.2f} bar a"]
+            ])
         elif scenario["fluid_type"] == "gas":
-            calc_text += (
-                f"Specific Gravity (air=1): {scenario['sg']:.3f}\n"
-                f"Specific Heat Ratio (k): {scenario['k']:.3f}\n"
-                f"Compressibility Factor (Z): {scenario['z']:.3f}\n"
-            )
+            fluid_data.extend([
+                ["Specific Gravity (air=1)", f"{scenario['sg']:.3f}"],
+                ["Specific Heat Ratio (k)", f"{scenario['k']:.3f}"],
+                ["Compressibility Factor (Z)", f"{scenario['z']:.3f}"]
+            ])
         else:
-            calc_text += (
-                f"Density: {scenario['rho']:.3f} kg/m³\n"
-                f"Specific Heat Ratio (k): {scenario['k']:.3f}\n"
-            )
-        calc_text += (
-            f"Pipe Diameter: {scenario['pipe_d']} in\n"
-            f"Required Cv: {req_cvs[i]:.1f}\n"
-            f"Operating Point: {op_points[i]:.1f}% open\n"
-            f"Actual Cv at Operating Point: {actual_cv:.1f}\n"
-            f"Margin: {margin:.1f}%\n"
-            f"Warnings: {warnings[i]}{', ' + cavitation_info[i] if cavitation_info[i] else ''}\n\n"
-        )
-        pdf.multi_cell(0, 5, calc_text)
+            fluid_data.extend([
+                ["Density", f"{scenario['rho']:.3f} kg/m³"],
+                ["Specific Heat Ratio (k)", f"{scenario['k']:.3f}"]
+            ])
+        pdf.add_key_value_table(["Parameter", "Value"], fluid_data)
+        
+        # Sizing results
+        actual_cv = valve.get_cv_at_opening(op_points[i])
+        margin = (actual_cv / req_cvs[i] - 1) * 100 if req_cvs[i] > 0 else 0
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(0, 6, 'Sizing Results:', 0, 1)
+        pdf.set_font('Arial', '', 10)
+        sizing_data = [
+            ["Theoretical Cv", f"{req_cvs[i]:.1f}"],
+            ["Corrected Cv", f"{req_cvs[i]:.1f}"],
+            ["Operating Point", f"{op_points[i]:.1f}% open"],
+            ["Actual Cv at OP", f"{actual_cv:.1f}"],
+            ["Margin", f"{margin:.1f}%"],
+            ["Cavitation Status", cavitation_info[i] if cavitation_info[i] else "N/A"],
+            ["Warnings", warnings[i] if warnings[i] else "None"]
+        ]
+        pdf.add_key_value_table(["Parameter", "Value"], sizing_data)
+        pdf.ln(10)
     
+    # 5. Valve Cv Characteristic Curve
+    pdf.add_page()
+    pdf.chapter_title('5. Valve Cv Characteristic Curve')
     if plot_bytes:
-        pdf.chapter_title('Valve Cv Characteristic Curve')
         try:
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_plot:
                 tmp_plot.write(plot_bytes)
                 tmp_plot_path = tmp_plot.name
             pdf.image(tmp_plot_path, x=10, w=180)
             os.unlink(tmp_plot_path)
+            pdf.ln(5)
+            pdf.set_font('Arial', 'I', 9)
+            pdf.cell(0, 5, f'Figure 1: Cv Characteristic Curve for {valve_display_name}', 0, 1, 'C')
         except Exception as e:
             pdf.cell(0, 10, f"Failed to insert plot: {str(e)}", 0, 1)
+    
+    # 6. Simulation Results
+    pdf.add_page()
+    pdf.chapter_title('6. Simulation Results')
+    pdf.set_font('Arial', '', 10)
+    pdf.multi_cell(0, 5, "Computational Fluid Dynamics (CFD) simulations provide detailed insights into valve performance under various flow conditions. The following results show pressure distribution and flow patterns.")
+    
+    # Get simulation image
+    simulation_url = get_simulation_image(valve_display_name)
+    try:
+        response = requests.get(simulation_url, timeout=10)
+        if response.status_code == 200:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_img:
+                tmp_img.write(response.content)
+                tmp_img_path = tmp_img.name
+            pdf.image(tmp_img_path, x=10, w=180)
+            os.unlink(tmp_img_path)
+            pdf.ln(5)
+            pdf.set_font('Arial', 'I', 9)
+            pdf.cell(0, 5, f'Figure 2: CFD Simulation for {valve_display_name}', 0, 1, 'C')
+        else:
+            pdf.cell(0, 10, f"Failed to download simulation image: HTTP {response.status_code}", 0, 1)
+    except Exception as e:
+        pdf.cell(0, 10, f"Failed to insert simulation image: {str(e)}", 0, 1)
+    
+    # Add appendix
+    pdf.add_page()
+    pdf.chapter_title('Appendix: Calculation Methodology')
+    pdf.set_font('Arial', '', 10)
+    methodology = """
+    This report follows ISA/IEC standards for control valve sizing:
+    
+    1. Liquid Flow (IEC 60534-2-1):
+        Cv = Q * √(SG/ΔP) * Fr (for non-choked flow)
+        Cv = Q * √(SG) / (Fl * √(P1 - Ff*Pv)) * Fr (for choked flow)
+        
+    2. Gas Flow (IEC 60534-2-3):
+        Cv = Q / (N7 * Fp * P1 * Y) * √(SG * T * Z / X)
+        
+    3. Steam Flow (IEC 60534-2-3):
+        Cv = M / (N6 * Y * √(X * P1 * ρ))
+        
+    Where:
+        Q = Flow rate (m³/h for liquids, std m³/h for gases)
+        M = Mass flow rate (kg/h)
+        SG = Specific gravity (liquid: water=1, gas: air=1)
+        ΔP = Pressure drop (bar)
+        P1 = Inlet pressure (bar a)
+        P2 = Outlet pressure (bar a)
+        Pv = Vapor pressure (bar a)
+        Fl = Liquid pressure recovery factor
+        Ff = Critical pressure ratio factor
+        Fr = Reynolds number factor
+        T = Temperature (K)
+        Z = Compressibility factor
+        X = Pressure drop ratio (ΔP/P1)
+        Y = Expansion factor
+        ρ = Density (kg/m³)
+    """
+    pdf.multi_cell(0, 5, methodology)
     
     # FIX: Use BytesIO buffer instead of string encoding
     pdf_bytes_io = BytesIO()
