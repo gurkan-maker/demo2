@@ -1665,7 +1665,7 @@ def plot_cv_curve(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
         y=y_smooth, 
         mode='lines',
         name='Valve Cv',
-        line=dict(color='blue', width=3, shape='spline'))
+        line=dict(color='blue', width=3, shape='spline')))
     
     for i, (op, req_cv, theoretical_cv) in enumerate(zip(op_points, req_cvs, theoretical_cvs)):
         actual_cv = valve.get_cv_at_opening(op)
