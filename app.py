@@ -534,7 +534,7 @@ def check_cavitation(p1: float, p2: float, pv: float, fl: float, pc: float) -> t
         return False, sigma, km, "Mild cavitation risk"
     return False, sigma, km, "Minimal cavitation risk"
 
- ========================
+#========================
 # PDF REPORT GENERATION
 # ========================
 class PDFReport(FPDF):
