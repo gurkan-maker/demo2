@@ -1195,7 +1195,7 @@ def generate_flow_vs_dp_smooth(scenario, valve, op_point, details, req_cv):
                     color='green')
     
     # Formatting
-    ax.set_title(f'Flow Rate vs Pressure Drop - {scenario["name"]', fontsize=14, fontweight='bold')
+    ax.set_title(f'Flow Rate vs Pressure Drop - scenario["name"]', fontsize=14, fontweight='bold')
     ax.set_xlabel('Pressure Drop (bar)', fontsize=12)
     ylabel = 'Flow Rate (m³/h)' if scenario['fluid_type']=='liquid' else 'Flow Rate (std m³/h)' if scenario['fluid_type']=='gas' else 'Flow Rate (kg/h)'
     ax.set_ylabel(ylabel, fontsize=12)
