@@ -797,6 +797,50 @@ def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
     return fig
 
 # ========================
+# MATPLOTLIB PLOT FOR PDF
+# ========================
+def plot_cv_curve_matplotlib(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
+    plt.figure(figsize=(10, 6))
+    
+    # Valve Cv curve
+    openings = list(range(0, 101, 5))
+    cv_values = [valve.get_cv_at_opening(op) for op in openings]
+    plt.plot(openings, cv_values, 'b-', linewidth=2, label='Valve Cv')
+    
+    # Operating points
+    for i, op in enumerate(op_points):
+        actual_cv = valve.get_cv_at_opening(op)
+        plt.plot(op, actual_cv, 'ro', markersize=8)
+        plt.text(op + 2, actual_cv, f'S{i+1}', fontsize=10, color='red')
+    
+    # Required Cv lines
+    for i, cv in enumerate(req_cvs):
+        plt.axhline(y=cv, color='r', linestyle='--', linewidth=1)
+        plt.text(100, cv, f'Corrected S{i+1}: {cv:.1f}', 
+                 fontsize=9, color='red', ha='right', va='bottom')
+    
+    # Theoretical Cv lines
+    for i, cv in enumerate(theoretical_cvs):
+        plt.axhline(y=cv, color='g', linestyle=':', linewidth=1)
+        plt.text(100, cv, f'Theoretical S{i+1}: {cv:.1f}', 
+                 fontsize=9, color='green', ha='right', va='top')
+    
+    plt.title(f'{valve.size}" Valve Cv Characteristic')
+    plt.xlabel('Opening Percentage (%)')
+    plt.ylabel('Cv Value')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(loc='upper left')
+    plt.xlim(0, 100)
+    plt.ylim(0, max(cv_values) * 1.1)
+    
+    # Save to bytes buffer
+    buf = BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+    plt.close()
+    buf.seek(0)
+    return buf.getvalue()
+
+# ========================
 # RECOMMENDED VALVE LOGIC
 # ========================
 def evaluate_valve_for_scenario(valve, scenario):
@@ -1804,14 +1848,14 @@ def main():
             st.error("Please calculate results before exporting.")
             st.stop()
         try:
-            fig = plot_cv_curve(
+            # Use matplotlib for PDF generation instead of Plotly
+            plot_bytes = plot_cv_curve_matplotlib(
                 st.session_state.results["selected_valve"], 
                 [r["op_point"] for r in st.session_state.results["selected_valve_results"]],
                 [r["req_cv"] for r in st.session_state.results["selected_valve_results"]],
                 [r["theoretical_cv"] for r in st.session_state.results["selected_valve_results"]],
                 [s["name"] for s in st.session_state.scenarios]
             )
-            plot_bytes = fig.to_image(format="png")
             pdf_bytes = generate_pdf_report(
                 st.session_state.scenarios,
                 st.session_state.results["selected_valve"],
