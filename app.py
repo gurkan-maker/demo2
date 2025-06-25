@@ -553,10 +553,6 @@ class EnhancedPDFReport(FPDF):
         self.set_author("VASTAS Valve Sizing Software")
         self.alias_nb_pages()
         self.set_compression(True)
-        self.add_font('Helvetica', '', 'helvetica.ttf', uni=True)
-        self.add_font('Helvetica', 'B', 'helveticab.ttf', uni=True)
-        self.add_font('Helvetica', 'I', 'helveticai.ttf', uni=True)
-        self.add_font('Helvetica', 'BI', 'helveticabi.ttf', uni=True)
     
     def header(self):
         if self.page_no() == 1:
@@ -576,12 +572,12 @@ class EnhancedPDFReport(FPDF):
             except Exception as e:
                 pass
         
-        self.set_font('Helvetica', 'B', 10)
+        self.set_font('Arial', 'B', 10)
         self.set_text_color(0, 51, 102)
         self.set_y(10)
         self.cell(0, 10, 'Control Valve Sizing Report', 0, 0, 'C')
         
-        self.set_font('Helvetica', 'I', 8)
+        self.set_font('Arial', 'I', 8)
         self.set_text_color(100)
         self.set_y(10)
         self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', 0, 0, 'R')
@@ -593,7 +589,7 @@ class EnhancedPDFReport(FPDF):
             return
             
         self.set_y(-15)
-        self.set_font('Helvetica', 'I', 8)
+        self.set_font('Arial', 'I', 8)
         self.set_text_color(100)
         self.cell(0, 10, f'Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 0, 'L')
         self.cell(0, 10, 'Confidential - VASTAS Valve Technologies', 0, 0, 'R')
@@ -618,43 +614,43 @@ class EnhancedPDFReport(FPDF):
                 pass
         
         self.set_y(120)
-        self.set_font('Helvetica', 'B', 24)
+        self.set_font('Arial', 'B', 24)
         self.set_text_color(0, 51, 102)
         self.cell(0, 15, title, 0, 1, 'C')
         
-        self.set_font('Helvetica', 'I', 18)
+        self.set_font('Arial', 'I', 18)
         self.set_text_color(70, 70, 70)
         self.cell(0, 10, subtitle, 0, 1, 'C')
         
         if project_info:
-            self.set_font('Helvetica', '', 14)
+            self.set_font('Arial', '', 14)
             self.set_text_color(0, 0, 0)
             self.ln(20)
             self.cell(0, 10, project_info, 0, 1, 'C')
         
         self.set_y(220)
-        self.set_font('Helvetica', 'B', 14)
+        self.set_font('Arial', 'B', 14)
         self.set_text_color(0, 51, 102)
         self.cell(0, 10, 'VASTAS Valve Technologies', 0, 1, 'C')
         
-        self.set_font('Helvetica', 'I', 12)
+        self.set_font('Arial', 'I', 12)
         self.set_text_color(70, 70, 70)
         self.cell(0, 10, datetime.now().strftime("%B %d, %Y"), 0, 1, 'C')
         
         self.set_y(270)
-        self.set_font('Helvetica', 'I', 10)
+        self.set_font('Arial', 'I', 10)
         self.set_text_color(150, 0, 0)
         self.cell(0, 5, 'CONFIDENTIAL - For internal use only', 0, 0, 'C')
     
     def chapter_title(self, title):
-        self.set_font('Helvetica', 'B', 14)
+        self.set_font('Arial', 'B', 14)
         self.set_text_color(0, 51, 102)
         self.set_fill_color(230, 240, 255)
         self.cell(0, 10, title, 0, 1, 'L', 1)
         self.ln(5)
     
     def chapter_body(self, body, font_size=12):
-        self.set_font('Helvetica', '', font_size)
+        self.set_font('Arial', '', font_size)
         self.set_text_color(0, 0, 0)
         self.multi_cell(0, 6, body)
         self.ln()
@@ -664,7 +660,7 @@ class EnhancedPDFReport(FPDF):
         if col_widths is None:
             col_widths = [self.w / len(headers)] * len(headers)
         
-        self.set_font('Helvetica', 'B', 10)
+        self.set_font('Arial', 'B', 10)
         self.set_text_color(255, 255, 255)
         self.set_fill_color(*header_color)
         
@@ -672,7 +668,7 @@ class EnhancedPDFReport(FPDF):
             self.cell(col_widths[i], 7, header, 1, 0, 'C', 1)
         self.ln()
         
-        self.set_font('Helvetica', '', 10)
+        self.set_font('Arial', '', 10)
         self.set_text_color(0, 0, 0)
         
         for row_idx, row in enumerate(data):
@@ -684,17 +680,17 @@ class EnhancedPDFReport(FPDF):
             self.ln()
     
     def add_key_value_table(self, data, col_widths=[70, 130], font_size=10):
-        self.set_font('Helvetica', 'B', font_size)
+        self.set_font('Arial', 'B', font_size)
         self.set_text_color(0, 51, 102)
         self.set_fill_color(240, 248, 255)
         
         for key, value in data:
             self.cell(col_widths[0], 7, key, 1, 0, 'L', 1)
-            self.set_font('Helvetica', '', font_size)
+            self.set_font('Arial', '', font_size)
             self.set_text_color(0, 0, 0)
             self.set_fill_color(255, 255, 255)
             self.cell(col_widths[1], 7, str(value), 1, 1, 'L', 1)
-            self.set_font('Helvetica', 'B', font_size)
+            self.set_font('Arial', 'B', font_size)
             self.set_text_color(0, 51, 102)
             self.set_fill_color(240, 248, 255)
     
@@ -708,7 +704,7 @@ class EnhancedPDFReport(FPDF):
             os.unlink(tmp_plot_path)
             
             if caption:
-                self.set_font('Helvetica', 'I', 8)
+                self.set_font('Arial', 'I', 8)
                 self.set_text_color(100)
                 self.cell(0, 5, caption, 0, 1, 'C')
                 self.ln(3)
