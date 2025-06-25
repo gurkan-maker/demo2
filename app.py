@@ -1,4 +1,3 @@
-
 from scipy.interpolate import CubicSpline
 import streamlit as st
 import streamlit.components.v1 as components
@@ -1162,36 +1161,60 @@ def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
 # ========================
 # MATPLOTLIB PLOT FOR PDF
 # ========================
-from scipy.interpolate import CubicSpline
-
-def plot_cv_curve(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
-    # Get valve's Cv characteristics
+def plot_cv_curve_matplotlib(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
+    # Generate smooth curve using polynomial interpolation
     openings = np.array(sorted(valve.cv_table.keys()))
     cv_values = np.array([valve.get_cv_at_opening(op) for op in openings])
     
-    # Create cubic spline interpolation for smooth curve
-    cs = CubicSpline(openings, cv_values)
+    # Create dense x values for smooth curve
     x_smooth = np.linspace(0, 100, 300)
-    y_smooth = cs(x_smooth)
     
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=x_smooth, 
-        y=y_smooth, 
-        mode='lines',
-        name='Valve Cv',
-        line=dict(color='blue', width=3)
-    ))
+    # Create polynomial fit (degree 3 for smooth curve)
+    if len(openings) > 3:
+        z = np.polyfit(openings, cv_values, 3)
+        p = np.poly1d(z)
+        y_smooth = p(x_smooth)
+    else:
+        # Fallback to linear interpolation
+        y_smooth = np.interp(x_smooth, openings, cv_values)
     
-    # Add actual CV points from valve table (for reference)
-    fig.add_trace(go.Scatter(
-        x=openings,
-        y=cv_values,
-        mode='markers',
-        name='Actual CV Points',
-        marker=dict(size=8, color='black', symbol='x'),
-        showlegend=True
-    ))
+    plt.figure(figsize=(10, 6))
+    
+    # Valve Cv curve (smooth)
+    plt.plot(x_smooth, y_smooth, 'b-', linewidth=2, label='Valve Cv')
+    
+    # Operating points
+    for i, op in enumerate(op_points):
+        actual_cv = valve.get_cv_at_opening(op)
+        plt.plot(op, actual_cv, 'ro', markersize=8)
+        plt.text(op + 2, actual_cv, f'S{i+1}', fontsize=10, color='red')
+    
+    # Required Cv lines
+    for i, cv in enumerate(req_cvs):
+        plt.axhline(y=cv, color='r', linestyle='--', linewidth=1)
+        plt.text(100, cv, f'Corrected S{i+1}: {cv:.1f}', 
+                 fontsize=9, color='red', ha='right', va='bottom')
+    
+    # Theoretical Cv lines
+    for i, cv in enumerate(theoretical_cvs):
+        plt.axhline(y=cv, color='g', linestyle=':', linewidth=1)
+        plt.text(100, cv, f'Theoretical S{i+1}: {cv:.1f}', 
+                 fontsize=9, color='green', ha='right', va='top')
+    
+    plt.title(f'{valve.size}" Valve Cv Characteristic')
+    plt.xlabel('Opening Percentage (%)')
+    plt.ylabel('Cv Value')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(loc='upper left')
+    plt.xlim(0, 100)
+    plt.ylim(0, max(cv_values) * 1.1)
+    
+    # Save to bytes buffer
+    buf = BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+    plt.close()
+    buf.seek(0)
+    return buf.getvalue()
 
 def plot_flow_vs_dp_matplotlib(scenario, valve, op_point, details, req_cv):
     # Get actual Cv at operating point
@@ -1731,21 +1754,14 @@ def scenario_input_form(scenario_num, scenario_data=None):
     }
 
 def plot_cv_curve(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
-    # Generate smooth curve using polynomial interpolation
+    # Get valve's Cv characteristics
     openings = np.array(sorted(valve.cv_table.keys()))
     cv_values = np.array([valve.get_cv_at_opening(op) for op in openings])
     
-    # Create dense x values for smooth curve
+    # Create cubic spline interpolation for smooth curve
+    cs = CubicSpline(openings, cv_values)
     x_smooth = np.linspace(0, 100, 300)
-    
-    # Create polynomial fit (degree 3 for smooth curve)
-    if len(openings) > 3:
-        z = np.polyfit(openings, cv_values, 3)
-        p = np.poly1d(z)
-        y_smooth = p(x_smooth)
-    else:
-        # Fallback to linear interpolation
-        y_smooth = np.interp(x_smooth, openings, cv_values)
+    y_smooth = cs(x_smooth)
     
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -1753,7 +1769,18 @@ def plot_cv_curve(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
         y=y_smooth, 
         mode='lines',
         name='Valve Cv',
-        line=dict(color='blue', width=3)))
+        line=dict(color='blue', width=3)
+    ))
+    
+    # Add actual CV points from valve table (for reference)
+    fig.add_trace(go.Scatter(
+        x=openings,
+        y=cv_values,
+        mode='markers',
+        name='Actual CV Points',
+        marker=dict(size=8, color='black', symbol='x'),
+        showlegend=True
+    ))
     
     for i, (op, req_cv, theoretical_cv) in enumerate(zip(op_points, req_cvs, theoretical_cvs)):
         actual_cv = valve.get_cv_at_opening(op)
