@@ -1,3 +1,4 @@
+scipy>=1.10.0
 streamlit>=1.22.0
 plotly>=5.13.0
 pandas>=1.5.0
@@ -7,3 +8,4 @@ fpdf2>=2.5.5
 Pillow>=9.3.0
 kaleido>=0.2.1
 matplotlib>=3.6.0
+
