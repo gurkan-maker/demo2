@@ -550,18 +550,27 @@ class EnhancedPDFReport(FPDF):
         self.set_auto_page_break(auto=True, margin=15)
         self.set_margins(15, 15, 15)
         self.set_title("Control Valve Sizing Report")
-        self.set_author("VASTAS Valve Sizing Software")
+        self.set_author("VASTAŞ Valve Sizing Software")
         self.alias_nb_pages()
         self.set_compression(True)
+        
+        # Add Unicode support (DejaVuSans font supports most characters)
+        self.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+        self.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)
+        self.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf', uni=True)
+        self.add_font('DejaVu', 'BI', 'DejaVuSans-BoldOblique.ttf', uni=True)
     
     def header(self):
+        # Header only from second page onward
         if self.page_no() == 1:
             return
             
+        # Draw top border
         self.set_draw_color(0, 51, 102)
         self.set_line_width(0.5)
         self.line(10, 15, 200, 15)
         
+        # Logo
         if self.logo_bytes and self.logo_type:
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{self.logo_type.lower()}") as tmpfile:
@@ -572,37 +581,44 @@ class EnhancedPDFReport(FPDF):
             except Exception as e:
                 pass
         
-        self.set_font('Arial', 'B', 10)
+        # Title
+        self.set_font('DejaVu', 'B', 10)
         self.set_text_color(0, 51, 102)
         self.set_y(10)
         self.cell(0, 10, 'Control Valve Sizing Report', 0, 0, 'C')
         
-        self.set_font('Arial', 'I', 8)
+        # Page number
+        self.set_font('DejaVu', 'I', 8)
         self.set_text_color(100)
         self.set_y(10)
         self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', 0, 0, 'R')
         
+        # Line break
         self.ln(15)
         
     def footer(self):
+        # Footer only from second page onward
         if self.page_no() == 1:
             return
             
         self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
+        self.set_font('DejaVu', 'I', 8)
         self.set_text_color(100)
         self.cell(0, 10, f'Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 0, 'L')
-        self.cell(0, 10, 'Confidential - VASTAS Valve Technologies', 0, 0, 'R')
+        self.cell(0, 10, 'Confidential - VASTAŞ Valve Technologies', 0, 0, 'R')
     
     def cover_page(self, title, subtitle, project_info=None):
         self.add_page()
         
+        # Background rectangle
         self.set_fill_color(0, 51, 102)
         self.rect(0, 0, 210, 297, 'F')
         
+        # Main content area
         self.set_fill_color(255, 255, 255)
         self.rect(15, 15, 180, 267, 'F')
         
+        # Logo at top
         if self.logo_bytes and self.logo_type:
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{self.logo_type.lower()}") as tmpfile:
@@ -613,44 +629,50 @@ class EnhancedPDFReport(FPDF):
             except Exception as e:
                 pass
         
+        # Title
         self.set_y(120)
-        self.set_font('Arial', 'B', 24)
+        self.set_font('DejaVu', 'B', 24)
         self.set_text_color(0, 51, 102)
         self.cell(0, 15, title, 0, 1, 'C')
         
-        self.set_font('Arial', 'I', 18)
+        # Subtitle
+        self.set_font('DejaVu', 'I', 18)
         self.set_text_color(70, 70, 70)
         self.cell(0, 10, subtitle, 0, 1, 'C')
         
+        # Project info
         if project_info:
-            self.set_font('Arial', '', 14)
+            self.set_font('DejaVu', '', 14)
             self.set_text_color(0, 0, 0)
             self.ln(20)
             self.cell(0, 10, project_info, 0, 1, 'C')
         
+        # Company info
         self.set_y(220)
-        self.set_font('Arial', 'B', 14)
+        self.set_font('DejaVu', 'B', 14)
         self.set_text_color(0, 51, 102)
-        self.cell(0, 10, 'VASTAS Valve Technologies', 0, 1, 'C')
+        self.cell(0, 10, 'VASTAŞ Valve Technologies', 0, 1, 'C')
         
-        self.set_font('Arial', 'I', 12)
+        # Date
+        self.set_font('DejaVu', 'I', 12)
         self.set_text_color(70, 70, 70)
         self.cell(0, 10, datetime.now().strftime("%B %d, %Y"), 0, 1, 'C')
         
+        # Confidential notice
         self.set_y(270)
-        self.set_font('Arial', 'I', 10)
+        self.set_font('DejaVu', 'I', 10)
         self.set_text_color(150, 0, 0)
         self.cell(0, 5, 'CONFIDENTIAL - For internal use only', 0, 0, 'C')
     
     def chapter_title(self, title):
-        self.set_font('Arial', 'B', 14)
+        self.set_font('DejaVu', 'B', 14)
         self.set_text_color(0, 51, 102)
         self.set_fill_color(230, 240, 255)
         self.cell(0, 10, title, 0, 1, 'L', 1)
         self.ln(5)
     
     def chapter_body(self, body, font_size=12):
-        self.set_font('Arial', '', font_size)
+        self.set_font('DejaVu', '', font_size)
         self.set_text_color(0, 0, 0)
         self.multi_cell(0, 6, body)
         self.ln()
@@ -660,7 +682,8 @@ class EnhancedPDFReport(FPDF):
         if col_widths is None:
             col_widths = [self.w / len(headers)] * len(headers)
         
-        self.set_font('Arial', 'B', 10)
+        # Table header
+        self.set_font('DejaVu', 'B', 10)
         self.set_text_color(255, 255, 255)
         self.set_fill_color(*header_color)
         
@@ -668,10 +691,12 @@ class EnhancedPDFReport(FPDF):
             self.cell(col_widths[i], 7, header, 1, 0, 'C', 1)
         self.ln()
         
-        self.set_font('Arial', '', 10)
+        # Table data
+        self.set_font('DejaVu', '', 10)
         self.set_text_color(0, 0, 0)
         
         for row_idx, row in enumerate(data):
+            # Alternate row colors
             fill_color = row_colors[row_idx % len(row_colors)]
             self.set_fill_color(*fill_color)
             
@@ -680,17 +705,17 @@ class EnhancedPDFReport(FPDF):
             self.ln()
     
     def add_key_value_table(self, data, col_widths=[70, 130], font_size=10):
-        self.set_font('Arial', 'B', font_size)
+        self.set_font('DejaVu', 'B', font_size)
         self.set_text_color(0, 51, 102)
         self.set_fill_color(240, 248, 255)
         
         for key, value in data:
             self.cell(col_widths[0], 7, key, 1, 0, 'L', 1)
-            self.set_font('Arial', '', font_size)
+            self.set_font('DejaVu', '', font_size)
             self.set_text_color(0, 0, 0)
             self.set_fill_color(255, 255, 255)
-            self.cell(col_widths[1], 7, str(value), 1, 1, 'L', 1)
-            self.set_font('Arial', 'B', font_size)
+            self.multi_cell(col_widths[1], 7, str(value), 1, 'L', 1)
+            self.set_font('DejaVu', 'B', font_size)
             self.set_text_color(0, 51, 102)
             self.set_fill_color(240, 248, 255)
     
@@ -704,7 +729,7 @@ class EnhancedPDFReport(FPDF):
             os.unlink(tmp_plot_path)
             
             if caption:
-                self.set_font('Arial', 'I', 8)
+                self.set_font('DejaVu', 'I', 8)
                 self.set_text_color(100)
                 self.cell(0, 5, caption, 0, 1, 'C')
                 self.ln(3)
@@ -714,17 +739,20 @@ class EnhancedPDFReport(FPDF):
 def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitation_info, 
                         plot_bytes=None, flow_dp_plot_bytes=None, logo_bytes=None, logo_type=None):
     try:
+        # Create PDF with enhanced features
         pdf = EnhancedPDFReport(logo_bytes=logo_bytes, logo_type=logo_type)
         
+        # Cover page
         project_name = "Valve Sizing Project"
         if scenarios and scenarios[0].get("name"):
             project_name = scenarios[0]["name"]
         pdf.cover_page(
             title="CONTROL VALVE SIZING REPORT",
             subtitle=project_name,
-            project_info=f"Prepared by VASTAS Engineering Department"
+            project_info=f"Prepared by VASTAŞ Engineering Department"
         )
         
+        # Table of Contents
         pdf.add_page()
         pdf.chapter_title('Table of Contents')
         toc = [
@@ -737,15 +765,17 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             ("7. Appendices", 12)
         ]
         
-        pdf.set_font('Helvetica', '', 12)
+        pdf.set_font('DejaVu', '', 12)
         pdf.set_text_color(0, 0, 0)
         
         for title, page in toc:
+            # Add dot leaders
             pdf.cell(0, 10, title, 0, 0, 'L')
             dot_leader = '.' * (70 - len(title))
             pdf.cell(0, 10, dot_leader, 0, 0, 'L')
             pdf.cell(0, 10, str(page), 0, 1, 'R')
         
+        # Project Information
         pdf.add_page()
         pdf.chapter_title('1. Project Information')
         pdf.chapter_body('This report contains the sizing calculations for the control valve based on the provided operational scenarios.', 12)
@@ -753,12 +783,13 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
         project_info = [
             ("Project Name:", project_name),
             ("Report Date:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-            ("Prepared By:", "VASTAS Valve Sizing Software"),
+            ("Prepared By:", "VASTAŞ Valve Sizing Software"),
             ("Valve Model:", get_valve_display_name(valve)),
             ("Number of Scenarios:", str(len(scenarios)))
         ]
         pdf.add_key_value_table(project_info)
         
+        # Valve Specifications
         pdf.add_page()
         pdf.chapter_title('2. Valve Specifications')
         
@@ -770,7 +801,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             ("Xt (Pressure Drop Ratio):", f"{valve.xt:.3f}"),
             ("Fd (Valve Style Modifier):", f"{valve.fd:.2f}"),
             ("Internal Diameter:", f"{valve.diameter:.2f} in"),
-            ("Manufacturer:", "VASTAS Valves")
+            ("Manufacturer:", "VASTAŞ Valves")
         ]
         pdf.add_key_value_table(valve_specs)
         
@@ -780,6 +811,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             cv_table_data.append([f"{open_percent}%", f"{cv:.1f}"])
         pdf.add_table(['Opening %', 'Cv Value'], cv_table_data, col_widths=[50, 50])
         
+        # Sizing Results Summary
         pdf.add_page()
         pdf.chapter_title('3. Sizing Results Summary')
         
@@ -814,15 +846,18 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             col_widths=[30, 25, 25, 25, 25, 25, 40]
         )
         
-        pdf.set_font('Helvetica', 'I', 9)
+        # Status legend
+        pdf.set_font('DejaVu', 'I', 9)
         pdf.set_text_color(100)
         pdf.cell(0, 5, "Status Legend: ✅ Optimal | ⚠️ Warning | ❌ Critical Issue", 0, 1)
         
+        # Detailed Calculations
         for i, scenario in enumerate(scenarios):
             pdf.add_page()
             pdf.chapter_title(f'4. Detailed Calculations: Scenario {i+1} - {scenario["name"]}')
             
-            pdf.set_font('Helvetica', 'B', 12)
+            # Scenario parameters
+            pdf.set_font('DejaVu', 'B', 12)
             pdf.cell(0, 8, "Process Conditions", 0, 1)
             scenario_params = [
                 ("Fluid Type:", scenario['fluid_type'].title()),
@@ -836,7 +871,8 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             ]
             pdf.add_key_value_table(scenario_params)
             
-            pdf.set_font('Helvetica', 'B', 12)
+            # Fluid properties
+            pdf.set_font('DejaVu', 'B', 12)
             pdf.cell(0, 8, "Fluid Properties", 0, 1)
             fluid_props = []
             if scenario["fluid_type"] == "liquid":
@@ -859,6 +895,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
                 ])
             pdf.add_key_value_table(fluid_props)
             
+            # Calculation results
             result = {
                 "op_point": op_points[i],
                 "req_cv": req_cvs[i],
@@ -867,7 +904,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             }
             actual_cv = valve.get_cv_at_opening(op_points[i])
             
-            pdf.set_font('Helvetica', 'B', 12)
+            pdf.set_font('DejaVu', 'B', 12)
             pdf.cell(0, 8, "Sizing Results", 0, 1)
             sizing_results = [
                 ("Theoretical Cv:", f"{result.get('theoretical_cv', 0):.1f}"),
@@ -880,12 +917,14 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             ]
             pdf.add_key_value_table(sizing_results)
             
-            if i == 0 and flow_dp_plot_bytes:
+            # Flow vs DP graph
+            if i == 0 and flow_dp_plot_bytes:  # Only include for first scenario to save space
                 pdf.add_page()
                 pdf.chapter_title('Flow Rate vs Pressure Drop')
                 pdf.chapter_body('The graph below shows the relationship between flow rate and pressure drop for the selected valve at the operating point.', 10)
                 pdf.add_image(flow_dp_plot_bytes, width=150, caption=f"Flow vs Pressure Drop - {scenario['name']}")
         
+        # Valve Characteristics
         pdf.add_page()
         pdf.chapter_title('5. Valve Characteristics')
         pdf.chapter_body('The following graph shows the Cv characteristic curve of the selected valve with operating points for each scenario.', 12)
@@ -893,6 +932,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
         if plot_bytes:
             pdf.add_image(plot_bytes, width=150, caption="Valve Cv Characteristic Curve")
         
+        # Cavitation Analysis
         pdf.add_page()
         pdf.chapter_title('6. Cavitation Analysis')
         pdf.chapter_body('Cavitation occurs when the pressure drops below the vapor pressure of the liquid, causing vapor bubbles to form and collapse. This can cause damage to the valve and piping system.', 12)
@@ -909,7 +949,7 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
         pdf.add_table(cavitation_table[0], cavitation_table[1:], col_widths=[40, 60, 90])
         
         pdf.ln(10)
-        pdf.set_font('Helvetica', 'B', 12)
+        pdf.set_font('DejaVu', 'B', 12)
         pdf.cell(0, 8, "Cavitation Mitigation Strategies", 0, 1)
         strategies = [
             "1. Use valves with higher pressure recovery factors (Fl)",
@@ -920,19 +960,20 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
             "6. Use anti-cavitation trim designs"
         ]
         for strategy in strategies:
-            pdf.set_font('Helvetica', '', 10)
-            pdf.cell(0, 6, strategy, 0, 1)
+            pdf.set_font('DejaVu', '', 10)
+            pdf.multi_cell(0, 6, strategy)
         
+        # Appendices
         pdf.add_page()
         pdf.chapter_title('7. Appendices')
         
-        pdf.set_font('Helvetica', 'B', 12)
+        pdf.set_font('DejaVu', 'B', 12)
         pdf.cell(0, 8, "Calculation Standards", 0, 1)
-        pdf.set_font('Helvetica', '', 10)
+        pdf.set_font('DejaVu', '', 10)
         pdf.multi_cell(0, 6, "This sizing report is based on the ISA-75.01.01 (IEC 60534-2-1) standard for control valve sizing equations. The calculations consider fluid properties, piping geometry, and valve characteristics to determine the optimal valve size and operating conditions.")
         
         pdf.ln(5)
-        pdf.set_font('Helvetica', 'B', 12)
+        pdf.set_font('DejaVu', 'B', 12)
         pdf.cell(0, 8, "Symbols and Abbreviations", 0, 1)
         abbreviations = [
             ("Cv:", "Valve flow coefficient"),
@@ -953,11 +994,12 @@ def generate_pdf_report(scenarios, valve, op_points, req_cvs, warnings, cavitati
         pdf.add_key_value_table(abbreviations, col_widths=[20, 170], font_size=10)
         
         pdf.ln(5)
-        pdf.set_font('Helvetica', 'B', 12)
+        pdf.set_font('DejaVu', 'B', 12)
         pdf.cell(0, 8, "Disclaimer", 0, 1)
-        pdf.set_font('Helvetica', '', 9)
-        pdf.multi_cell(0, 5, "This report is generated by VASTAS Valve Sizing Software and is provided for informational purposes only. While every effort has been made to ensure the accuracy of the calculations, VASTAS makes no warranties or representations regarding the completeness or accuracy of this information. Final valve selection should be verified by a qualified engineer.")
+        pdf.set_font('DejaVu', '', 9)
+        pdf.multi_cell(0, 5, "This report is generated by VASTAŞ Valve Sizing Software and is provided for informational purposes only. While every effort has been made to ensure the accuracy of the calculations, VASTAŞ makes no warranties or representations regarding the completeness or accuracy of this information. Final valve selection should be verified by a qualified engineer.")
         
+        # Generate PDF in memory
         pdf_bytes_io = BytesIO()
         pdf.output(pdf_bytes_io)
         pdf_bytes_io.seek(0)
@@ -996,14 +1038,18 @@ def get_simulation_image(valve_name):
 # FLOW RATE VS PRESSURE DROP GRAPH
 # ========================
 def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
+    # Get actual Cv at operating point
     actual_cv = valve.get_cv_at_opening(op_point)
     valve_cv_effective = actual_cv * details.get('fp', 1.0)
     
+    # Determine max pressure drop
     if scenario['fluid_type'] == "liquid":
         max_dp = details.get('dp_max', scenario['p1'] - scenario['p2'])
     elif scenario['fluid_type'] in ["gas", "steam"]:
+        # Safely get x_crit with fallback
         x_crit = details.get('x_crit', 0)
         if x_crit <= 0:
+            # Calculate from k and xt if available
             k = scenario.get('k', 1.4)
             xt = details.get('xt', 0.5)
             fk = k / 1.4
@@ -1012,10 +1058,12 @@ def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
     else:
         max_dp = scenario['p1'] - scenario['p2']
     
-    min_dp = max(0.1, max_dp / 10)
-    dp_range = np.linspace(min_dp, max_dp, 200)
+    # Create pressure drop range (from 1/10 max to max)
+    min_dp = max(0.1, max_dp / 10)  # Ensure min_dp is at least 0.1 bar
+    dp_range = np.linspace(min_dp, max_dp, 200)  # More points for smoother curve
     flow_rates = []
     
+    # Calculate flow rates for each dp
     for dp in dp_range:
         if scenario['fluid_type'] == "liquid":
             if dp <= details.get('dp_max', dp):
@@ -1051,12 +1099,16 @@ def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
                 x * scenario['p1'] * scenario['rho'])
             flow_rates.append(flow)
         else:
+            # Fallback for unknown fluid type
             flow_rates.append(0)
     
+    # Current operating point
     current_dp = scenario['p1'] - scenario['p2']
     current_flow = scenario['flow']
     
+    # Create plot with smooth curve using polynomial interpolation
     if len(dp_range) > 3 and len(flow_rates) > 3:
+        # Create polynomial fit for smooth curve
         z = np.polyfit(dp_range, flow_rates, 3)
         p = np.poly1d(z)
         x_smooth = np.linspace(min_dp, max_dp, 300)
@@ -1081,6 +1133,7 @@ def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
         marker=dict(size=12, color='red')
     ))
     
+    # Add max flow annotation
     if max_dp > 0 and flow_rates:
         max_flow = flow_rates[-1]
         fig.add_annotation(
@@ -1113,32 +1166,40 @@ def generate_flow_vs_dp_graph(scenario, valve, op_point, details, req_cv):
 # MATPLOTLIB PLOT FOR PDF
 # ========================
 def plot_cv_curve_matplotlib(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
+    # Generate smooth curve using polynomial interpolation
     openings = sorted(valve.cv_table.keys())
     cv_values = np.array([valve.get_cv_at_opening(op) for op in openings])
     
+    # Create dense x values for smooth curve
     x_smooth = np.linspace(0, 100, 300)
     
+    # Create polynomial fit (degree 3 for smooth curve)
     if len(openings) > 3:
         z = np.polyfit(openings, cv_values, 3)
         p = np.poly1d(z)
         y_smooth = p(x_smooth)
     else:
+        # Fallback to linear interpolation
         y_smooth = np.interp(x_smooth, openings, cv_values)
     
     plt.figure(figsize=(10, 6))
     
+    # Valve Cv curve (smooth)
     plt.plot(x_smooth, y_smooth, 'b-', linewidth=2, label='Valve Cv')
     
+    # Operating points
     for i, op in enumerate(op_points):
         actual_cv = valve.get_cv_at_opening(op)
         plt.plot(op, actual_cv, 'ro', markersize=8)
         plt.text(op + 2, actual_cv, f'S{i+1}', fontsize=10, color='red')
     
+    # Required Cv lines
     for i, cv in enumerate(req_cvs):
         plt.axhline(y=cv, color='r', linestyle='--', linewidth=1)
         plt.text(100, cv, f'Corrected S{i+1}: {cv:.1f}', 
                  fontsize=9, color='red', ha='right', va='bottom')
     
+    # Theoretical Cv lines
     for i, cv in enumerate(theoretical_cvs):
         plt.axhline(y=cv, color='g', linestyle=':', linewidth=1)
         plt.text(100, cv, f'Theoretical S{i+1}: {cv:.1f}', 
@@ -1152,6 +1213,7 @@ def plot_cv_curve_matplotlib(valve, op_points, req_cvs, theoretical_cvs, scenari
     plt.xlim(0, 100)
     plt.ylim(0, max(cv_values) * 1.1)
     
+    # Save to bytes buffer
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
     plt.close()
@@ -1159,9 +1221,11 @@ def plot_cv_curve_matplotlib(valve, op_points, req_cvs, theoretical_cvs, scenari
     return buf.getvalue()
 
 def plot_flow_vs_dp_matplotlib(scenario, valve, op_point, details, req_cv):
+    # Get actual Cv at operating point
     actual_cv = valve.get_cv_at_opening(op_point)
     valve_cv_effective = actual_cv * details.get('fp', 1.0)
     
+    # Determine max pressure drop
     if scenario['fluid_type'] == "liquid":
         max_dp = details.get('dp_max', scenario['p1'] - scenario['p2'])
     elif scenario['fluid_type'] in ["gas", "steam"]:
@@ -1175,10 +1239,12 @@ def plot_flow_vs_dp_matplotlib(scenario, valve, op_point, details, req_cv):
     else:
         max_dp = scenario['p1'] - scenario['p2']
     
+    # Create pressure drop range
     min_dp = max(0.1, max_dp / 10)
-    dp_range = np.linspace(min_dp, max_dp, 200)
+    dp_range = np.linspace(min_dp, max_dp, 200)  # More points for smoother curve
     flow_rates = []
     
+    # Calculate flow rates
     for dp in dp_range:
         if scenario['fluid_type'] == "liquid":
             if dp <= details.get('dp_max', dp):
@@ -1214,10 +1280,13 @@ def plot_flow_vs_dp_matplotlib(scenario, valve, op_point, details, req_cv):
         else:
             flow_rates.append(0)
     
+    # Current operating point
     current_dp = scenario['p1'] - scenario['p2']
     current_flow = scenario['flow']
     
+    # Create smooth curve using polynomial interpolation
     if len(dp_range) > 3 and len(flow_rates) > 3:
+        # Create polynomial fit (degree 3 for smooth curve)
         z = np.polyfit(dp_range, flow_rates, 3)
         p = np.poly1d(z)
         x_smooth = np.linspace(min_dp, max_dp, 300)
@@ -1230,6 +1299,7 @@ def plot_flow_vs_dp_matplotlib(scenario, valve, op_point, details, req_cv):
     plt.plot(x_smooth, y_smooth, 'b-', linewidth=2, label='Flow Rate')
     plt.plot(current_dp, current_flow, 'ro', markersize=8, label='Operating Point')
     
+    # Mark max flow
     if flow_rates:
         plt.plot(max_dp, flow_rates[-1], 'go', markersize=8)
         plt.annotate(f'Max Flow: {flow_rates[-1]:.1f}', 
@@ -1247,6 +1317,7 @@ def plot_flow_vs_dp_matplotlib(scenario, valve, op_point, details, req_cv):
     if flow_rates:
         plt.ylim(0, max(flow_rates) * 1.1)
     
+    # Save to bytes buffer
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
     plt.close()
@@ -1270,6 +1341,7 @@ def evaluate_valve_for_scenario(valve, scenario):
     else:
         xt = valve.get_xt_at_opening(100)
     
+    # Calculate velocity
     valve_diameter_m = valve.diameter * 0.0254
     valve_area = math.pi * (valve_diameter_m/2)**2
     
@@ -1289,6 +1361,7 @@ def evaluate_valve_for_scenario(valve, scenario):
         volume_flow_m3s = volume_flow_m3h / 3600
         velocity = volume_flow_m3s / valve_area
     
+    # Calculate required Cv
     if scenario["fluid_type"] == "liquid":
         if scenario.get('fluid_library') in FLUID_LIBRARY:
             fluid_data = FLUID_LIBRARY[scenario['fluid_library']]
@@ -1685,9 +1758,11 @@ def scenario_input_form(scenario_num, scenario_data=None):
     }
 
 def plot_cv_curve(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
+    # Get valve's Cv characteristics
     openings = sorted(valve.cv_table.keys())
     cv_values = np.array([valve.get_cv_at_opening(op) for op in openings])
     
+    # Create cubic spline interpolation for smooth curve
     cs = CubicSpline(openings, cv_values)
     x_smooth = np.linspace(0, 100, 300)
     y_smooth = cs(x_smooth)
@@ -1701,6 +1776,7 @@ def plot_cv_curve(valve, op_points, req_cvs, theoretical_cvs, scenario_names):
         line=dict(color='blue', width=3)
     ))
     
+    # Add actual CV points from valve table (for reference)
     fig.add_trace(go.Scatter(
         x=openings,
         y=cv_values,
@@ -1947,8 +2023,8 @@ def main():
         st.markdown("**ISA/IEC Standards Compliant Valve Sizing with Enhanced Visualization**")
     
     with st.sidebar:
-        st.header("VASTAS Logo")
-        logo_upload = st.file_uploader("Upload VASTAS logo", type=["png", "jpg", "jpeg"], key="logo_uploader")
+        st.header("VASTAŞ Logo")
+        logo_upload = st.file_uploader("Upload VASTAŞ logo", type=["png", "jpg", "jpeg"], key="logo_uploader")
         if logo_upload is not None:
             st.session_state.logo_bytes = logo_upload.getvalue()
             st.session_state.logo_type = "PNG"
@@ -1958,7 +2034,7 @@ def main():
         elif os.path.exists("logo.png"):
             st.image(Image.open("logo.png"), use_container_width=True)
         else:
-            st.image("https://via.placeholder.com/300x100?text=VASTAS+Logo", use_container_width=True)
+            st.image("https://via.placeholder.com/300x100?text=VASTAŞ+Logo", use_container_width=True)
         
         st.header("Valve Selection")
         valve_options = create_valve_dropdown()
@@ -2014,20 +2090,17 @@ def main():
         if not scenarios:
             st.error("Please define at least one scenario with flow > 0.")
             st.stop()
-        try:
-            selected_valve_results = []
-            for scenario in scenarios:
-                result = evaluate_valve_for_scenario(selected_valve, scenario)
-                selected_valve_results.append(result)
-            recommended_valve, all_valve_results = find_recommended_valve(scenarios)
-            st.session_state.results = {
-                "selected_valve": selected_valve,
-                "selected_valve_results": selected_valve_results,
-                "recommended_valve": recommended_valve,
-                "all_valve_results": all_valve_results
-            }
-        except Exception as e:
-            st.error(f"Calculation error: {str(e)}")
+        selected_valve_results = []
+        for scenario in scenarios:
+            result = evaluate_valve_for_scenario(selected_valve, scenario)
+            selected_valve_results.append(result)
+        recommended_valve, all_valve_results = find_recommended_valve(scenarios)
+        st.session_state.results = {
+            "selected_valve": selected_valve,
+            "selected_valve_results": selected_valve_results,
+            "recommended_valve": recommended_valve,
+            "all_valve_results": all_valve_results
+        }
     
     with tab_results:
         if st.session_state.results:
@@ -2040,10 +2113,12 @@ def main():
                 st.subheader("Recommended Valve")
                 st.markdown(f"**{recommended_valve['display_name']}** - Score: {recommended_valve['score']:.1f}")
                 
+                # Show each scenario result for recommended valve in card layout
                 for i, scenario in enumerate(scenarios):
                     result = recommended_valve["results"][i]
                     actual_cv = recommended_valve["valve"].get_cv_at_opening(result["op_point"])
                     
+                    # Determine status class
                     status_class = ""
                     if result["status"] == "green":
                         status_class = "success-card"
@@ -2054,6 +2129,7 @@ def main():
                     elif result["status"] == "red":
                         status_class = "danger-card"
                     
+                    # Combine warnings
                     warn_msgs = []
                     if result["warning"]:
                         warn_msgs.append(result["warning"])
@@ -2273,6 +2349,7 @@ def main():
             st.error("Please calculate results before exporting.")
             st.stop()
         try:
+            # Generate both plots for PDF
             cv_plot_bytes = plot_cv_curve_matplotlib(
                 st.session_state.results["selected_valve"], 
                 [r["op_point"] for r in st.session_state.results["selected_valve_results"]],
@@ -2281,6 +2358,7 @@ def main():
                 [s["name"] for s in st.session_state.scenarios]
             )
             
+            # Generate flow vs pressure drop plot for first scenario
             flow_dp_plot_bytes = None
             if st.session_state.scenarios:
                 scenario = st.session_state.scenarios[0]
